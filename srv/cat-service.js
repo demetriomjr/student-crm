@@ -18,10 +18,10 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 module.exports = srv => {
-  // CAP custom action handler
+
   srv.on('uploadReceipt', async (req) => {
     const { studentId, receiptFile, amount } = req.data;
-    // Save receipt info to DB
+
     const result = await cds.tx(req).run(
       INSERT.into('Receipts').entries({
         student: { ID: studentId },
@@ -33,7 +33,6 @@ module.exports = srv => {
     return { message: 'Receipt uploaded', receipt: result };
   });
 
-  // Express file upload endpoint
   cds.on('bootstrap', app => {
     app.post('/students/uploadReceipt', upload.single('file'), async (req, res) => {
       try {
@@ -53,7 +52,7 @@ module.exports = srv => {
         res.status(500).json({ error: err.message });
       }
     });
-    // Serve uploaded files
+
     app.use('/uploads', require('express').static(path.resolve(__dirname, '../uploads')));
   });
 };
