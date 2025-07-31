@@ -1,0 +1,11 @@
+ID,fullname,email,lastPaymentAt,balance,createdAt,createdBy,modifiedAt,modifiedBy
+1,Maria Silva Santos,maria.silva@email.com,2024-12-15,250.00,2024-01-15T08:30:00Z,admin,2024-01-15T08:30:00Z,admin
+2,João Pedro Oliveira,joao.pedro@email.com,2024-12-03,250.00,2024-01-16T09:15:00Z,admin,2024-01-16T09:15:00Z,admin
+3,Ana Carolina Ferreira,ana.ferreira@email.com,2024-12-28,250.00,2024-01-17T10:45:00Z,admin,2024-01-17T10:45:00Z,admin
+4,Lucas Miguel Costa,lucas.costa@email.com,2024-12-08,250.00,2024-01-18T14:20:00Z,admin,2024-01-18T14:20:00Z,admin
+5,Beatriz Almeida Rocha,beatriz.almeida@email.com,2024-12-22,250.00,2024-01-19T16:30:00Z,admin,2024-01-19T16:30:00Z,admin
+6,Rafael Henrique Lima,rafael.lima@email.com,2024-12-10,250.00,2024-01-20T11:10:00Z,admin,2024-01-20T11:10:00Z,admin
+7,Camila Rodrigues Martins,camila.rodrigues@email.com,2024-12-01,250.00,2024-01-21T13:45:00Z,admin,2024-01-21T13:45:00Z,admin
+8,Gabriel Santos Pereira,gabriel.santos@email.com,2024-12-18,250.00,2024-01-22T15:20:00Z,admin,2024-01-22T15:20:00Z,admin
+9,Larissa Fernanda Souza,larissa.souza@email.com,2024-12-05,250.00,2024-01-23T12:00:00Z,admin,2024-01-23T12:00:00Z,admin
+10,Thiago Augusto Barbosa,thiago.barbosa@email.com,2024-12-25,250.00,2024-01-24T17:30:00Z,admin,2024-01-24T17:30:00Z,admin

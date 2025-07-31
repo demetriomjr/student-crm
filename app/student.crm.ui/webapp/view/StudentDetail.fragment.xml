@@ -1,0 +1,237 @@
+<core:FragmentDefinition
+	xmlns="sap.m"
+	xmlns:core="sap.ui.core"
+	xmlns:form="sap.ui.layout.form">
+	
+	<Dialog id="studentDetailDialog" 
+		title="{detailForm>/title}"
+		contentWidth="700px"
+		contentHeight="90%"
+		draggable="false"
+		resizable="false"
+		afterClose="onCancelDetailForm">
+		<content>
+			<form:SimpleForm
+				id="studentForm"
+				editable="true"
+				layout="ResponsiveGridLayout"
+				labelSpanXL="4"
+				labelSpanL="4"
+				labelSpanM="12"
+				labelSpanS="12"
+				adjustLabelSpan="false"
+				emptySpanXL="0"
+				emptySpanL="0"
+				emptySpanM="0"
+				emptySpanS="0"
+				columnsXL="1"
+				columnsL="1"
+				columnsM="1"
+				singleContainerFullSize="false">
+				<form:content>
+					<!-- Full Name -->
+					<VBox >
+						<Label text="{i18n>studentFullName}" required="true" />
+						<Input 
+							id="fullNameInput"
+							value="{detailForm>/student/fullname}"
+							placeholder="{i18n>fullNamePlaceholder}"
+							valueState="None"
+							maxLength="150" 
+							width="100%"/>
+						<HBox alignContent="Stretch" class="sapUiSmallMarginTop">
+							<VBox width="calc(100% - 160px)" class="sapUiSmallMarginEnd" alignContent="Stretch">
+								<layoutData>
+									<FlexItemData growFactor="1"/>
+								</layoutData>
+								<!-- Email -->
+								<Label text="{i18n>studentEmail}" required="true"/>
+								<Input 
+									id="emailInput"
+									value="{detailForm>/student/email}"
+									placeholder="{i18n>emailPlaceholder}"
+									valueState="None"
+									type="Email"
+									maxLength="100"
+									width="100%" />
+							</VBox>
+							<VBox width="150px">
+								<!-- Balance -->
+								<Label text="{i18n>studentBalance}" />
+								<Input
+									id="balanceInput"
+									value="{ path: 'detailForm>/student/balance', formatter: '.formatBalance' }"
+									enabled="false" 
+									width="100%"
+									textAlign="Right"/>
+							</VBox>	
+						</HBox>	
+						<!-- Receipts -->
+						<Button 
+							text="{i18n>addReceipt}" 
+							type="Emphasized" 
+							icon="sap-icon://add" 
+							press="onAddReceipt" 
+							visible="{= !${detailForm>/showReceiptEditor}}"
+							class="sapUiSmallMarginTop sapUiSizeCompact" />
+						<Table id="receiptsTable" 
+							visible="{= !${detailForm>/showReceiptEditor}}" 
+							class="sapUiSizeCompact sapUiSmallMarginTop" 
+							items="{receipts>/receipts}" 
+							inset="false">
+							<columns>
+								<Column>
+									<HBox justifyContent="Start" alignItems="Center">
+										<Link text="{i18n>receiptAmount}" press="onReceiptColumnSort">
+											<customData>
+												<core:CustomData key="sortProperty" value="amount" />
+											</customData>
+										</Link>
+										<core:Icon
+											id="sortIconReceiptAmount"
+											src="sap-icon://navigation-up-arrow"
+											size="0.75rem"
+											color="Default"
+											visible="false"
+											class="sapUiTinyMarginBegin" />
+									</HBox>
+								</Column>
+								<Column>
+									<HBox justifyContent="Start" alignItems="Center">
+										<Link text="{i18n>receiptDate}" press="onReceiptColumnSort">
+											<customData>
+												<core:CustomData key="sortProperty" value="date" />
+											</customData>
+										</Link>
+										<core:Icon
+											id="sortIconReceiptDate"
+											src="sap-icon://navigation-up-arrow"
+											size="0.75rem"
+											color="Default"
+											visible="false"
+											class="sapUiTinyMarginBegin" />
+									</HBox>
+								</Column>
+								<Column>
+									<Text text="{i18n>actions}" />
+								</Column>
+							</columns>
+							<items>
+								<ColumnListItem>
+									<cells>
+										<Text text="{path: 'receipts>amount', formatter: '.formatBalance'}" class="sapThemePositive-asColor" />
+										<Text text="{path: 'receipts>date', formatter: '.formatDate'}" />
+										<HBox>
+											<Button 
+												type="Transparent" 
+												icon="sap-icon://show" 
+												press="onViewReceiptFile" 
+												enabled="{= !!${receipts>fileName}}"
+												tooltip="{i18n>viewFile}" />
+											<Button type="Transparent" icon="sap-icon://edit" press="onEditReceipt" tooltip="{i18n>editReceipt}" />
+											<Button type="Transparent" icon="sap-icon://delete" press="onDeleteReceipt" tooltip="{i18n>deleteTooltip}" />
+										</HBox>
+									</cells>
+								</ColumnListItem>
+							</items>
+						</Table>
+					</VBox>
+					</form:content>
+				</form:SimpleForm>
+				<!-- Receipt Editor: only shown when triggered -->
+				<Panel id="receiptEditor" 
+					visible="{detailForm>/showReceiptEditor}" 
+					class="sapUiSmallMarginTop" 
+					headerText="{i18n>editReceipt}">
+					<VBox>
+						<HBox>
+							<VBox width="130px" class="sapUiSmallMarginEnd">
+								<Label text="{i18n>receiptAmount}" />
+								<Input 
+									id="receiptAmountInput"
+	 								value="{detailForm>/currentReceipt/amount}" 
+									placeholder="{i18n>receiptAmountPlaceholder}"
+									type="Text"
+									textAlign="End"
+									liveChange="onReceiptAmountChange"
+									change="onReceiptAmountCursorMove" /> 
+							</VBox>
+							<VBox class="sapUiSmallMarginStart sapUiSmallMarginEnd" width="145px">
+								<Label text="{i18n>receiptDate}" />
+								<DatePicker 
+									id="receiptDatePicker"
+									value="{detailForm>/currentReceipt/date}" 
+									placeholder="{i18n>receiptDatePlaceholder}"
+									displayFormat="dd/MM/yyyy"
+									liveChange="onReceiptDateChange"
+									change="onReceiptDateBlur" />
+							</VBox>
+							<!-- File Upload Section -->
+							<VBox class="sapUiSmalMarginStart" alignContent="SpaceAround" justifyContent="Center">
+								<Label text="{i18n>receiptFile}" />
+								<HBox class="sapUiSmallMarginStart">
+									<!-- File Upload Input -->
+									<core:HTML content="&lt;input type='file' id='receiptFileInput' accept='.pdf,.jpg,.jpeg,.png,.gif,.doc,.docx' style='display:none;' /&gt;" />
+									
+									<!-- Upload/Replace Button -->
+									<Button 
+										id=""
+										text="{= ${detailForm>/currentReceipt/fileName} ? ${i18n>replaceFile} : ${i18n>uploadFile}}"
+										icon="sap-icon://upload"
+										type="Emphasized"
+										press="onUploadReceiptFile" 
+										class="sapUiSmallMarginStart sapUiSizeCompact sapUiSmallMarginEnd" />
+									
+									<!-- File Info Display -->
+									<HBox visible="{= !!${detailForm>/currentReceipt/fileName}}" class="sapUiTinyMarginStart">
+										<core:Icon 
+											src="sap-icon://attachment" 
+											color="Positive"
+											size="1rem"
+											class="sapUiSmallMarginStart sapUiTinyMarginEnd sapUiSmallMarginTop" />
+										<Text 
+											text="{detailForm>/currentReceipt/fileName}" 
+											class="sapUiSmallMarginStart sapUiTinyMarginEnd sapUiSmallMarginTop"/>
+										<Button 
+											type="Transparent" 
+											icon="sap-icon://show" 
+											press="onViewReceiptFileInEditor" 
+											tooltip="{i18n>viewFile}"
+											class="sapUiSmallMarginStart" />
+										<Button 
+											type="Transparent" 
+											icon="sap-icon://delete" 
+											press="onRemoveReceiptFile" 
+											tooltip="{i18n>removeFile}" 
+											class="sapUiTinyMarginStart" />
+									</HBox>
+									
+									<!-- No File Display -->
+									<Text 
+										text="{i18n>noFileAttached}" 
+										class="sapThemeNeutral-asColor sapUiSmallMarginStart sapUiSmallMarginTop"
+										visible="{= !${detailForm>/currentReceipt/fileName}}" />
+								</HBox>
+							</VBox>
+						</HBox>
+						
+						
+						
+						<Toolbar class="sapUiSmallMarginTop">
+							<Button text="{i18n>saveBtn}" press="onSaveReceipt" type="Emphasized" class="sapUiSizeCompact"/>
+							<Button text="{i18n>cancelBtn}" press="onCancelReceiptEdit" />
+						</Toolbar>
+					</VBox>
+				</Panel>
+			</content>
+		<buttons>
+			<Button 
+				text="{detailForm>/saveButtonText}"
+				type="Emphasized"
+				press="onSaveStudent" />
+			<Button 
+				text="{i18n>cancelBtn}"
+				press="onCancelDetailForm" />
+		</buttons>
+	</Dialog>
+</core:FragmentDefinition>

@@ -4,26 +4,107 @@
 	xmlns="sap.m"
 	xmlns:mvc="sap.ui.core.mvc"
 	xmlns:core="sap.ui.core"
-	core:require="{
-		formatter: 'student/crm/ui/model/formatter'
-	}">
+	xmlns:f="sap.ui.layout.form">
 
 	<Page
-		title="{i18n>appTitle}"
-		id="page">
+		title="{i18n>loginPageTitle}"
+		id="page"
+		class="sapUiContentPadding">
 		<content>
-			<IllustratedMessage
-				title="{i18n>appTitle}"
-				illustrationType="sapIllus-SuccessHighFive"
-				enableVerticalResponsiveness="true"
-				description="{i18n>appDescription}">
-				<additionalContent>
-					<Button
-						id="helloButton"
-						text="{formatter: 'formatter.formatValue', path: 'i18n>btnText'}"
-						press="sayHello" />
-				</additionalContent>
-			</IllustratedMessage>
+			<VBox 
+				alignItems="Center" 
+				justifyContent="Center" 
+				class="sapUiLargeMarginTop"
+				height="100%">
+				
+				<!-- Login Card -->
+				<Panel
+					width="400px"
+					class="sapUiResponsiveMargin"
+					headerText="{i18n>loginFormTitle}">
+					<content>
+						<VBox class="sapUiMediumMargin">
+							
+							<!-- Logo/Icon -->
+							<HBox justifyContent="Center" class="sapUiMediumMarginBottom">
+								<core:Icon
+									src="sap-icon://education"
+									size="4rem"
+									color="Positive" />
+							</HBox>
+
+							<!-- Welcome Message -->
+							<Text
+								text="{i18n>welcomeMessage}"
+								textAlign="Center"
+								class="sapUiMediumMarginBottom" />
+
+							<!-- Login Form -->
+							<f:SimpleForm
+								id="loginForm"
+								editable="true"
+								layout="ResponsiveGridLayout"
+								labelSpanXL="4"
+								labelSpanL="4"
+								labelSpanM="12"
+								labelSpanS="12"
+								adjustLabelSpan="false"
+								emptySpanXL="0"
+								emptySpanL="0"
+								emptySpanM="0"
+								emptySpanS="0"
+								columnsXL="1"
+								columnsL="1"
+								columnsM="1"
+								singleContainerFullSize="false">
+								<f:content>
+									
+									<Label text="{i18n>usernameLabel}" />
+									<Input
+										id="usernameInput"
+										value="{/username}"
+										placeholder="{i18n>usernamePlaceholder}"
+										required="true"
+										valueState="{/usernameState}"
+										valueStateText="{/usernameStateText}"
+										submit="onLoginFieldSubmit" />
+
+									<Label text="{i18n>passwordLabel}" />
+									<Input
+										id="passwordInput"
+										type="Password"
+										value="{/password}"
+										placeholder="{i18n>passwordPlaceholder}"
+										required="true"
+										valueState="{/passwordState}"
+										valueStateText="{/passwordStateText}"
+										submit="onLoginFieldSubmit" />
+
+								</f:content>
+							</f:SimpleForm>
+
+							<!-- Login Button -->
+							<Button
+								id="loginButton"
+								text="{i18n>loginButton}"
+								type="Emphasized"
+								width="100%"
+								press="onLogin"
+								class="sapUiMediumMarginTop" />
+
+							<!-- Demo Credentials Info -->
+							<VBox class="sapUiSmallMarginTop">
+								<Text
+									text="{i18n>demoCredentialsTitle}"
+									class="sapUiTinyMarginBottom sapMTextBold" />
+								<Text text="{i18n>demoUsername}" />
+								<Text text="{i18n>demoPassword}" />
+							</VBox>
+
+						</VBox>
+					</content>
+				</Panel>
+			</VBox>
 		</content>
 	</Page>
 

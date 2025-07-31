@@ -1,0 +1,377 @@
+<mvc:View
+	controllerName="student.crm.ui.controller.Students"
+	displayBlock="true"
+	xmlns="sap.m"
+	xmlns:mvc="sap.ui.core.mvc"
+	xmlns:core="sap.ui.core"
+	xmlns:form="sap.ui.layout.form">
+
+	<Page
+		title="{i18n>studentsPageTitle}"
+		id="studentsPage"
+		titleAlignment="Center"
+		class="sapUiContentPadding">
+		<headerContent>
+			<ToolbarSpacer />
+		</headerContent>
+		<content>
+			<FlexBox id="widthWrapper" direction="Column" alignItems="Center" width="100%" height="100%">
+				<FlexBox id="mainContainer" direction="Column" width="80%" height="95%">
+					<FlexBox
+						id="addNewButtonContainer"
+						class="sapUiSmallMarginTopBottom"
+						direction="Row"
+						justifyContent="End"
+						alignItems="End">
+						<!-- Add Student Button -->
+						<Button
+							id="addStudentButton"
+							text="{i18n>addStudentBtn}"
+							type="Emphasized"
+							press="onAddStudent"
+							icon="sap-icon://add" />
+					</FlexBox>
+					<FlexBox id="tableWrapper" direction="Column">
+						<Panel 
+							id="filterPanel" 
+							headerText="{i18n>filterTitle}"
+							expandable="true"
+							expanded="true"
+							class="sapUiLargeMarginBottom sapMTextBold sapUiContentPadding">
+							<content>
+								<FlexBox  
+								id="filterRow" 
+								direction="Row" 
+								justifyContent="Start" 
+								alignItems="Stretch" 
+								class="sapUiTinyMarginBottom sapUiContentPadding">
+									<!-- ID Filter -->
+									<VBox class="sapUiTinyMarginEnd sapUiTinyMarginBottom" width="200px">
+										<layoutData>
+											<FlexItemData shrinkFactor="0" />
+										</layoutData>
+										<Label text="{i18n>studentId}" class="sapUiTinyMarginBottom" />										
+										<HBox gap="0.5rem">
+											<Input
+												id="idFromInput"
+												placeholder="{i18n>fromId}"
+												value="{
+													path: 'filter>/filters/idFrom',
+													type: 'sap.ui.model.type.Integer',
+													constraints: {
+														minimum: 0
+													}
+												}"
+												width="80px"
+												liveChange="onIdFilterChange"
+												textAlign="End" />
+											<Input
+												id="idToInput"
+												placeholder="{i18n>toId}"
+												value="{
+													path: 'filter>/filters/idTo',
+													type: 'sap.ui.model.type.Integer',
+													constraints: {
+														minimum: 0
+													}
+												}"
+												width="80px"
+												liveChange="onIdFilterChange"
+												textAlign="End" />
+										</HBox>
+									</VBox>
+									<!-- Name Filter -->
+									<VBox class="sapUiTinyMarginEnd sapUiTinyMarginBottom" width="100%">
+										<layoutData>
+											<FlexItemData growFactor="1" minWidth="200px" />
+										</layoutData>
+										<Label text="{i18n>fullName}" class="sapUiTinyMarginBottom" />
+										<SearchField
+											id="searchField"
+											placeholder="{i18n>searchPlaceholder}"
+											search="onSearch"
+											liveChange="onNameFilterChange"
+											width="100%" />
+									</VBox>
+
+									<!-- Email Filter -->
+									<VBox class="sapUiTinyMarginEnd sapUiTinyMarginBottom" width="250px">
+										<layoutData>
+											<FlexItemData shrinkFactor="0" />
+										</layoutData>
+										<Label text="{i18n>email}" class="sapUiTinyMarginBottom" />
+										<Input
+											id="nameFilterInput"
+											placeholder="{i18n>enterEmail}"
+											value="{filter>/filters/email}"
+											width="100%"
+											type="Email"
+											liveChange="onEmailFilterChange" />
+									</VBox>
+
+									<!-- Balance Filter -->
+									<VBox class="sapUiTinyMarginEnd sapUiTinyMarginBottom" width="250px">
+
+										<Label text="{i18n>balance}" class="sapUiTinyMarginBottom" />
+										<HBox gap="0.5rem">
+											<Input
+												id="balanceFromInput"
+												placeholder="{i18n>fromBalance}"
+												value="{filter>/filters/balanceFrom}"
+												width="80px"
+												textAlign="End"
+												liveChange="onBalanceFilterChange" />
+											<Text text="-" class="sapUiTinyMarginTopBottom" />
+											<Input
+												id="balanceToInput"
+												placeholder="{i18n>toBalance}"
+												value="{filter>/filters/balanceTo}"
+												width="80px"
+												textAlign="End"
+												liveChange="onBalanceFilterChange" />
+										</HBox>
+									</VBox>
+
+									<!-- Date Filter -->
+									<VBox class="sapUiTinyMarginEnd" width="250px">
+										<layoutData>
+											<FlexItemData shrinkFactor="0" />
+										</layoutData>
+										<Label text="{i18n>lastPaymentDate}" class="sapUiTinyMarginBottom" />
+										<HBox gap="0.5rem">
+											<DatePicker
+												id="dateFromInput"
+												placeholder="{i18n>fromDate}"
+												value="{filter>/filters/dateFrom}"
+												width="120px"
+												displayFormat="dd/MM/yyyy"
+												liveChange="onReceiptDateChange"
+												change="onReceiptDateBlur" />
+										<Text text="-" class="sapUiTinyMarginTopBottom" />
+										<DatePicker
+											id="dateToInput"
+											placeholder="{i18n>toDate}"
+											value="{filter>/filters/dateTo}"
+											width="120px"
+											displayFormat="dd/MM/yyyy"
+											liveChange="onReceiptDateChange"
+											change="onReceiptDateBlur" />
+										</HBox>
+									</VBox>
+								</FlexBox>
+								<HBox justifyContent="End" class="sapUiTinyMarginTop">
+									<Button
+										id="clearFilterButton"
+										text="{i18n>clearFilter}"
+										type="Negative"
+										press="onClearFilter"
+										class="sapUiTinyMarginStart" />
+								</HBox>
+							</content>
+						</Panel>
+						<Panel>
+							<content>
+							<!-- Students Table -->
+							<Table
+								id="studentsTable"
+								items="{
+									path: '/Students',
+									parameters: {
+										$count: true,
+										$orderby: 'ID desc'
+									}
+								}"
+								width="auto"
+								fixedLayout="false">
+								<headerToolbar>
+									<Toolbar>
+										<Title text="{i18n>studentsTableTitle}" />
+										<ToolbarSpacer />
+										<Text text="{i18n>totalItems}: {pagination>/totalItems}" />
+									</Toolbar>
+								</headerToolbar>
+								<columns>
+									<Column width="5rem">
+										<Text text="" />
+									</Column>
+									<Column width="4rem" hAlign="Center">
+										<HBox justifyContent="Center" alignItems="Center">
+											<Link text="{i18n>studentId}" press="onColumnSort">
+												<customData>
+													<core:CustomData key="sortProperty" value="ID" />
+												</customData>
+											</Link>
+											<core:Icon
+												id="sortIconID"
+												src="sap-icon://navigation-up-arrow"
+												size="0.75rem"
+												color="Default"
+												visible="false"
+												class="sapUiTinyMarginBegin" />
+										</HBox>
+									</Column>
+									<Column>
+										<HBox justifyContent="Start" alignItems="Center">
+											<Link text="{i18n>fullName}" press="onColumnSort">
+												<customData>
+													<core:CustomData key="sortProperty" value="fullname" />
+												</customData>
+											</Link>
+											<core:Icon
+												id="sortIconFullName"
+												src="sap-icon://navigation-up-arrow"
+												size="0.75rem"
+												color="Default"
+												visible="false"
+												class="sapUiTinyMarginBegin" />
+										</HBox>
+									</Column>
+									<Column>
+										<HBox justifyContent="Start" alignItems="Center">
+											<Link text="{i18n>email}" press="onColumnSort">
+												<customData>
+													<core:CustomData key="sortProperty" value="email" />
+												</customData>
+											</Link>
+											<core:Icon
+												id="sortIconEmail"
+												src="sap-icon://navigation-up-arrow"
+												size="0.75rem"
+												color="Default"
+												visible="false"
+												class="sapUiTinyMarginBegin" />
+										</HBox>
+									</Column>
+									<Column>
+										<HBox justifyContent="Start" alignItems="Center">
+											<Link text="{i18n>balance}" press="onColumnSort">
+												<customData>
+													<core:CustomData key="sortProperty" value="balance" />
+												</customData>
+											</Link>
+											<core:Icon
+												id="sortIconBalance"
+												src="sap-icon://navigation-up-arrow"
+												size="0.75rem"
+												color="Default"
+												visible="false"
+												class="sapUiTinyMarginBegin" />
+										</HBox>
+									</Column>
+									<Column>
+										<HBox justifyContent="Center" alignItems="Center">
+											<Link text="{i18n>lastPayment}" press="onColumnSort">
+												<customData>
+													<core:CustomData key="sortProperty" value="lastPaymentAt" />
+												</customData>
+											</Link>
+											<core:Icon
+												id="sortIconLastPayment"
+												src="sap-icon://navigation-up-arrow"
+												size="0.75rem"
+												color="Default"
+												visible="false"
+												class="sapUiTinyMarginBegin" />
+										</HBox>
+									</Column>
+									<Column width="8rem">
+										<Text text="{i18n>actions}" />
+									</Column>
+								</columns>
+								<items>
+									<ColumnListItem press="onStudentPress">
+										<cells>
+											<CheckBox selected="false" select="onStudentCheckBoxSelect" />
+											<Text text="{ID}" />
+											<Text text="{fullname}" />
+											<Text text="{email}" />
+											<ObjectNumber
+												number="{
+													path: 'balance',
+													formatter: '.formatBalance'
+												}"
+												state="{
+													path: 'balance',
+													formatter: '.formatBalanceState'
+												}" />
+											<Text text="{
+												path: 'lastPaymentAt',
+												type: 'sap.ui.model.type.String',
+												formatter: '.formatDate'
+											}" />
+											<HBox>
+												<Button
+													icon="sap-icon://edit"
+													type="Transparent"
+													press="onEditStudent"
+													tooltip="{i18n>editTooltip}"
+													class="sapUiTinyMarginEnd" />
+												<Button
+													icon="sap-icon://delete"
+													type="Transparent"
+													press="onDeleteStudent"
+													tooltip="{i18n>deleteTooltip}"
+													class="sapUiTinyMarginEnd" />
+												<Button
+													icon="sap-icon://receipt"
+													type="Transparent"
+													press="onViewReceipts"
+													tooltip="{i18n>receiptsTooltip}" />
+											</HBox>
+										</cells>
+									</ColumnListItem>
+								</items>
+							</Table>
+							<!-- Pagination Controls -->
+							<Panel class="sapUiTinyMarginTop">
+								<content>
+									<HBox justifyContent="Center" alignItems="Center" class="sapUiContentPadding">
+										<HBox alignItems="Center">
+											<Button
+												icon="sap-icon://media-rewind"
+												type="Transparent"
+												press="onFirstPage"
+												enabled="{pagination>/hasPrevious}"
+												tooltip="{i18n>firstPage}"
+												class="sapUiTinyMarginEnd" />
+											<Button
+												icon="sap-icon://navigation-left-arrow"
+												type="Transparent"
+												press="onPreviousPage"
+												enabled="{pagination>/hasPrevious}"
+												tooltip="{i18n>previousPage}"
+												class="sapUiTinyMarginEnd" />
+											<Input
+												value="{pagination>/currentPage}"
+												change="onPageChange"
+												width="3rem"
+												textAlign="Center"
+												class="sapUiTinyMarginEnd" />
+											<Text text="{i18n>ofPages}: {pagination>/totalPages}" class="sapUiTinyMarginEnd" />
+											<Button
+												icon="sap-icon://navigation-right-arrow"
+												type="Transparent"
+												press="onNextPage"
+												enabled="{pagination>/hasNext}"
+												tooltip="{i18n>nextPage}"
+												class="sapUiTinyMarginEnd" />
+											<Button
+												icon="sap-icon://media-forward"
+												type="Transparent"
+												press="onLastPage"
+												enabled="{pagination>/hasNext}"
+												tooltip="{i18n>lastPage}" />
+										</HBox>
+									</HBox>
+								</content>
+							</Panel>
+
+							</content>
+						</Panel>
+					</FlexBox>
+				</FlexBox>
+			</FlexBox>
+		</content>
+	</Page>
+
+</mvc:View>

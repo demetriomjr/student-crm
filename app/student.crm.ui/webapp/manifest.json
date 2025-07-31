@@ -13,6 +13,16 @@
 		"sourceTemplate": {
 			"id": "generator-ui5-app",
 			"version": "1.1.0"
+		},
+		"dataSources": {
+			"mainService": {
+				"uri": "/odata/v4/api/",
+				"type": "OData",
+				"settings": {
+					"annotations": [],
+					"odataVersion": "4.0"
+				}
+			}
 		}
 	},
 
@@ -27,6 +37,7 @@
 	},
 
 	"sap.ui5": {
+		"flexEnabled": false,
 		"rootView": {
 			"viewName": "student.crm.ui.view.App",
 			"type": "XML",
@@ -37,7 +48,8 @@
 			"minUI5Version": "1.138.0",
 			"libs": {
 				"sap.ui.core": {},
-				"sap.m": {}
+				"sap.m": {},
+				"sap.ui.layout": {}
 			}
 		},
 
@@ -51,11 +63,21 @@
 		"models": {
 			"i18n": {
 				"type": "sap.ui.model.resource.ResourceModel",
+			"settings": {
+				"bundleName": "student.crm.ui.i18n.i18n",
+				"supportedLocales": ["en", "de", "pt"],
+				"fallbackLocale": "en",
+				"async": true
+				}
+			},
+			"": {
+				"dataSource": "mainService",
+				"type": "sap.ui.model.odata.v4.ODataModel",
 				"settings": {
-					"bundleName": "student.crm.ui.i18n.i18n",
-					"supportedLocales": ["en", "de"],
-					"fallbackLocale": "en",
-					"async": true
+					"synchronizationMode": "None",
+					"operationMode": "Server",
+					"autoExpandSelect": true,
+					"earlyRequests": true
 				}
 			}
 		},
@@ -63,8 +85,9 @@
 		"routing": {
 			"config": {
 				"routerClass": "sap.m.routing.Router",
+				"type": "View",
 				"viewType": "XML",
-				"viewPath": "student.crm.ui.view",
+				"path": "student.crm.ui.view",
 				"controlId": "app",
 				"controlAggregation": "pages"
 			},
@@ -72,13 +95,18 @@
 				{
 					"pattern": "",
 					"name": "main",
-					"target": "main"
+					"target": "students"
+				},
+				{
+					"pattern": "students",
+					"name": "students",
+					"target": "students"
 				}
 			],
 			"targets": {
-				"main": {
-					"viewId": "main",
-					"viewName": "Main"
+				"students": {
+					"id": "students",
+					"name": "Students"
 				}
 			}
 		}
