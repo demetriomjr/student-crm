@@ -4,174 +4,136 @@
 	xmlns="sap.m"
 	xmlns:mvc="sap.ui.core.mvc"
 	xmlns:core="sap.ui.core"
-	xmlns:form="sap.ui.layout.form">
+	xmlns:form="sap.ui.layout.form"
+	xmlns:fb="sap.ui.comp.filterbar">
 
 	<Page
 		title="{i18n>studentsPageTitle}"
 		id="studentsPage"
 		titleAlignment="Center"
 		class="sapUiContentPadding">
-		<headerContent>
-			<ToolbarSpacer />
-		</headerContent>
 		<content>
-			<FlexBox id="widthWrapper" direction="Column" alignItems="Center" width="100%" height="100%">
-				<FlexBox id="mainContainer" direction="Column" width="80%" height="95%">
-					<FlexBox
-						id="addNewButtonContainer"
-						class="sapUiSmallMarginTopBottom"
-						direction="Row"
-						justifyContent="End"
-						alignItems="End">
-						<!-- Add Student Button -->
-						<Button
-							id="addStudentButton"
-							text="{i18n>addStudentBtn}"
-							type="Emphasized"
-							press="onAddStudent"
-							icon="sap-icon://add" />
-					</FlexBox>
-					<FlexBox id="tableWrapper" direction="Column">
-						<Panel 
-							id="filterPanel" 
-							headerText="{i18n>filterTitle}"
-							expandable="true"
-							expanded="true"
-							class="sapUiLargeMarginBottom sapMTextBold sapUiContentPadding">
-							<content>
-								<FlexBox  
-								id="filterRow" 
-								direction="Row" 
-								justifyContent="Start" 
-								alignItems="Stretch" 
-								class="sapUiTinyMarginBottom sapUiContentPadding">
-									<!-- ID Filter -->
-									<VBox class="sapUiTinyMarginEnd sapUiTinyMarginBottom" width="200px">
-										<layoutData>
-											<FlexItemData shrinkFactor="0" />
-										</layoutData>
-										<Label text="{i18n>studentId}" class="sapUiTinyMarginBottom" />										
-										<HBox gap="0.5rem">
-											<Input
-												id="idFromInput"
-												placeholder="{i18n>fromId}"
-												value="{
-													path: 'filter>/filters/idFrom',
-													type: 'sap.ui.model.type.Integer',
-													constraints: {
-														minimum: 0
-													}
-												}"
-												width="80px"
-												liveChange="onIdFilterChange"
-												textAlign="End" />
-											<Input
-												id="idToInput"
-												placeholder="{i18n>toId}"
-												value="{
-													path: 'filter>/filters/idTo',
-													type: 'sap.ui.model.type.Integer',
-													constraints: {
-														minimum: 0
-													}
-												}"
-												width="80px"
-												liveChange="onIdFilterChange"
-												textAlign="End" />
-										</HBox>
-									</VBox>
-									<!-- Name Filter -->
-									<VBox class="sapUiTinyMarginEnd sapUiTinyMarginBottom" width="100%">
-										<layoutData>
-											<FlexItemData growFactor="1" minWidth="200px" />
-										</layoutData>
-										<Label text="{i18n>fullName}" class="sapUiTinyMarginBottom" />
-										<SearchField
-											id="searchField"
-											placeholder="{i18n>searchPlaceholder}"
-											search="onSearch"
-											liveChange="onNameFilterChange"
-											width="100%" />
-									</VBox>
+						<!-- FilterBar seguindo padrões SAPUI5 -->
+						<fb:FilterBar
+							id="studentsFilterBar"
+							search="onFilterBarSearch"
+							clear="onFilterBarClear"
+							showClearButton="true"
+							showGoButton="true"
+							showRestoreButton="true"
+							class="sapUiLargeMarginBottom">
+							<fb:filterItems>
+								<!-- Student ID Filter -->
+								<fb:FilterItem
+									name="studentId"
+									label="{i18n>studentId}"
+									mandatory="false"
+									visible="true">
+									<fb:control>
+										<MultiInput
+											id="studentIdMultiInput"
+											placeholder="{i18n>enterStudentIds}"
+											width="250px"
+											tokens="{filter>/filters/studentIds}"
+											tokenUpdate="onTokenUpdate"
+											suggestionItemSelected="onSuggestionItemSelected">
+											<tokens>
+												<Token key="{filter>key}" text="{filter>text}" delete="onTokenDelete" />
+											</tokens>
+										</MultiInput>
+									</fb:control>
+								</fb:FilterItem>
 
-									<!-- Email Filter -->
-									<VBox class="sapUiTinyMarginEnd sapUiTinyMarginBottom" width="250px">
-										<layoutData>
-											<FlexItemData shrinkFactor="0" />
-										</layoutData>
-										<Label text="{i18n>email}" class="sapUiTinyMarginBottom" />
-										<Input
-											id="nameFilterInput"
-											placeholder="{i18n>enterEmail}"
-											value="{filter>/filters/email}"
-											width="100%"
-											type="Email"
-											liveChange="onEmailFilterChange" />
-									</VBox>
+								<!-- Full Name Filter -->
+								<fb:FilterItem
+									name="fullName"
+									label="{i18n>fullName}"
+									mandatory="false"
+									visible="true">
+									<fb:control>
+										<MultiInput
+											id="fullNameMultiInput"
+											placeholder="{i18n>enterFullNames}"
+											width="300px"
+											tokens="{filter>/filters/fullNames}"
+											tokenUpdate="onTokenUpdate"
+											suggestionItemSelected="onSuggestionItemSelected">
+											<tokens>
+												<Token key="{filter>key}" text="{filter>text}" delete="onTokenDelete" />
+											</tokens>
+										</MultiInput>
+									</fb:control>
+								</fb:FilterItem>
 
-									<!-- Balance Filter -->
-									<VBox class="sapUiTinyMarginEnd sapUiTinyMarginBottom" width="250px">
+								<!-- Email Filter -->
+								<fb:FilterItem
+									name="email"
+									label="{i18n>email}"
+									mandatory="false"
+									visible="true">
+									<fb:control>
+										<MultiInput
+											id="emailMultiInput"
+											placeholder="{i18n>enterEmails}"
+											width="300px"
+											tokens="{filter>/filters/emails}"
+											tokenUpdate="onTokenUpdate"
+											suggestionItemSelected="onSuggestionItemSelected">
+											<tokens>
+												<Token key="{filter>key}" text="{filter>text}" delete="onTokenDelete" />
+											</tokens>
+										</MultiInput>
+									</fb:control>
+								</fb:FilterItem>
 
-										<Label text="{i18n>balance}" class="sapUiTinyMarginBottom" />
-										<HBox gap="0.5rem">
-											<Input
-												id="balanceFromInput"
-												placeholder="{i18n>fromBalance}"
-												value="{filter>/filters/balanceFrom}"
-												width="80px"
-												textAlign="End"
-												liveChange="onBalanceFilterChange" />
-											<Text text="-" class="sapUiTinyMarginTopBottom" />
-											<Input
-												id="balanceToInput"
-												placeholder="{i18n>toBalance}"
-												value="{filter>/filters/balanceTo}"
-												width="80px"
-												textAlign="End"
-												liveChange="onBalanceFilterChange" />
-										</HBox>
-									</VBox>
+								<!-- Balance Filter -->
+								<fb:FilterItem
+									name="balance"
+									label="{i18n>balance}"
+									mandatory="false"
+									visible="true">
+									<fb:control>
+										<MultiInput
+											id="balanceMultiInput"
+											placeholder="{i18n>enterBalanceRanges}"
+											width="250px"
+											tokens="{filter>/filters/balanceRanges}"
+											tokenUpdate="onTokenUpdate"
+											suggestionItemSelected="onSuggestionItemSelected">
+											<tokens>
+												<Token key="{filter>key}" text="{filter>text}" delete="onTokenDelete" />
+											</tokens>
+										</MultiInput>
+									</fb:control>
+								</fb:FilterItem>
 
-									<!-- Date Filter -->
-									<VBox class="sapUiTinyMarginEnd" width="250px">
-										<layoutData>
-											<FlexItemData shrinkFactor="0" />
-										</layoutData>
-										<Label text="{i18n>lastPaymentDate}" class="sapUiTinyMarginBottom" />
-										<HBox gap="0.5rem">
-											<DatePicker
-												id="dateFromInput"
-												placeholder="{i18n>fromDate}"
-												value="{filter>/filters/dateFrom}"
-												width="120px"
-												displayFormat="dd/MM/yyyy"
-												liveChange="onReceiptDateChange"
-												change="onReceiptDateBlur" />
-										<Text text="-" class="sapUiTinyMarginTopBottom" />
-										<DatePicker
-											id="dateToInput"
-											placeholder="{i18n>toDate}"
-											value="{filter>/filters/dateTo}"
-											width="120px"
-											displayFormat="dd/MM/yyyy"
-											liveChange="onReceiptDateChange"
-											change="onReceiptDateBlur" />
-										</HBox>
-									</VBox>
-								</FlexBox>
-								<HBox justifyContent="End" class="sapUiTinyMarginTop">
-									<Button
-										id="clearFilterButton"
-										text="{i18n>clearFilter}"
-										type="Negative"
-										press="onClearFilter"
-										class="sapUiTinyMarginStart" />
-								</HBox>
-							</content>
-						</Panel>
-						<Panel>
-							<content>
-							<!-- Students Table -->
+								<!-- Status Filter -->
+								<fb:FilterItem
+									name="status"
+									label="{i18n>status}"
+									mandatory="false"
+									visible="true">
+									<fb:control>
+										<MultiInput
+											id="statusMultiInput"
+											placeholder="{i18n>selectStatus}"
+											width="200px"
+											tokens="{filter>/filters/statusList}"
+											tokenUpdate="onTokenUpdate"
+											suggestionItemSelected="onSuggestionItemSelected">
+											<tokens>
+												<Token key="{filter>key}" text="{filter>text}" delete="onTokenDelete" />
+											</tokens>
+											<suggestionItems>
+												<core:Item key="active" text="{i18n>active}" />
+												<core:Item key="inactive" text="{i18n>inactive}" />
+												<core:Item key="pending" text="{i18n>pending}" />
+											</suggestionItems>
+										</MultiInput>
+									</fb:control>
+								</fb:FilterItem>
+							</fb:filterItems>
+						</fb:FilterBar> 
 							<Table
 								id="studentsTable"
 								items="{
@@ -182,97 +144,37 @@
 									}
 								}"
 								width="auto"
-								fixedLayout="false">
+								fixedLayout="false"
+                                mode="MultiSelect">
 								<headerToolbar>
 									<Toolbar>
 										<Title text="{i18n>studentsTableTitle}" />
 										<ToolbarSpacer />
 										<Text text="{i18n>totalItems}: {pagination>/totalItems}" />
+										<ToolbarSeparator />
+										<Button
+											id="addStudentButton"
+											text="{i18n>addStudentBtn}"
+											type="Emphasized"
+											press="onAddStudent"
+											icon="sap-icon://add" />
 									</Toolbar>
 								</headerToolbar>
 								<columns>
-									<Column width="5rem">
-										<Text text="" />
-									</Column>
 									<Column width="4rem" hAlign="Center">
-										<HBox justifyContent="Center" alignItems="Center">
-											<Link text="{i18n>studentId}" press="onColumnSort">
-												<customData>
-													<core:CustomData key="sortProperty" value="ID" />
-												</customData>
-											</Link>
-											<core:Icon
-												id="sortIconID"
-												src="sap-icon://navigation-up-arrow"
-												size="0.75rem"
-												color="Default"
-												visible="false"
-												class="sapUiTinyMarginBegin" />
-										</HBox>
+										<Text text="{i18n>ID}" />
 									</Column>
 									<Column>
-										<HBox justifyContent="Start" alignItems="Center">
-											<Link text="{i18n>fullName}" press="onColumnSort">
-												<customData>
-													<core:CustomData key="sortProperty" value="fullname" />
-												</customData>
-											</Link>
-											<core:Icon
-												id="sortIconFullName"
-												src="sap-icon://navigation-up-arrow"
-												size="0.75rem"
-												color="Default"
-												visible="false"
-												class="sapUiTinyMarginBegin" />
-										</HBox>
+										<Text text="{i18n>fullName}" />
 									</Column>
 									<Column>
-										<HBox justifyContent="Start" alignItems="Center">
-											<Link text="{i18n>email}" press="onColumnSort">
-												<customData>
-													<core:CustomData key="sortProperty" value="email" />
-												</customData>
-											</Link>
-											<core:Icon
-												id="sortIconEmail"
-												src="sap-icon://navigation-up-arrow"
-												size="0.75rem"
-												color="Default"
-												visible="false"
-												class="sapUiTinyMarginBegin" />
-										</HBox>
+                                        <Text text="{i18n>email}" />
 									</Column>
-									<Column>
-										<HBox justifyContent="Start" alignItems="Center">
-											<Link text="{i18n>balance}" press="onColumnSort">
-												<customData>
-													<core:CustomData key="sortProperty" value="balance" />
-												</customData>
-											</Link>
-											<core:Icon
-												id="sortIconBalance"
-												src="sap-icon://navigation-up-arrow"
-												size="0.75rem"
-												color="Default"
-												visible="false"
-												class="sapUiTinyMarginBegin" />
-										</HBox>
+									<Column>					
+                                        <Text text="{i18n>balance}" />
 									</Column>
-									<Column>
-										<HBox justifyContent="Center" alignItems="Center">
-											<Link text="{i18n>lastPayment}" press="onColumnSort">
-												<customData>
-													<core:CustomData key="sortProperty" value="lastPaymentAt" />
-												</customData>
-											</Link>
-											<core:Icon
-												id="sortIconLastPayment"
-												src="sap-icon://navigation-up-arrow"
-												size="0.75rem"
-												color="Default"
-												visible="false"
-												class="sapUiTinyMarginBegin" />
-										</HBox>
+									<Column>				
+										<Text text="{i18n>lastPayment}" />
 									</Column>
 									<Column width="8rem">
 										<Text text="{i18n>actions}" />
@@ -281,7 +183,6 @@
 								<items>
 									<ColumnListItem press="onStudentPress">
 										<cells>
-											<CheckBox selected="false" select="onStudentCheckBoxSelect" />
 											<Text text="{ID}" />
 											<Text text="{fullname}" />
 											<Text text="{email}" />
@@ -322,55 +223,6 @@
 									</ColumnListItem>
 								</items>
 							</Table>
-							<!-- Pagination Controls -->
-							<Panel class="sapUiTinyMarginTop">
-								<content>
-									<HBox justifyContent="Center" alignItems="Center" class="sapUiContentPadding">
-										<HBox alignItems="Center">
-											<Button
-												icon="sap-icon://media-rewind"
-												type="Transparent"
-												press="onFirstPage"
-												enabled="{pagination>/hasPrevious}"
-												tooltip="{i18n>firstPage}"
-												class="sapUiTinyMarginEnd" />
-											<Button
-												icon="sap-icon://navigation-left-arrow"
-												type="Transparent"
-												press="onPreviousPage"
-												enabled="{pagination>/hasPrevious}"
-												tooltip="{i18n>previousPage}"
-												class="sapUiTinyMarginEnd" />
-											<Input
-												value="{pagination>/currentPage}"
-												change="onPageChange"
-												width="3rem"
-												textAlign="Center"
-												class="sapUiTinyMarginEnd" />
-											<Text text="{i18n>ofPages}: {pagination>/totalPages}" class="sapUiTinyMarginEnd" />
-											<Button
-												icon="sap-icon://navigation-right-arrow"
-												type="Transparent"
-												press="onNextPage"
-												enabled="{pagination>/hasNext}"
-												tooltip="{i18n>nextPage}"
-												class="sapUiTinyMarginEnd" />
-											<Button
-												icon="sap-icon://media-forward"
-												type="Transparent"
-												press="onLastPage"
-												enabled="{pagination>/hasNext}"
-												tooltip="{i18n>lastPage}" />
-										</HBox>
-									</HBox>
-								</content>
-							</Panel>
-
-							</content>
-						</Panel>
-					</FlexBox>
-				</FlexBox>
-			</FlexBox>
 		</content>
 	</Page>
 

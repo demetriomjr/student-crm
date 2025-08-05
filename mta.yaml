@@ -1,4 +1,4 @@
-_schema-version: 3.3.0
+_schema-version: "3.3.0"
 ID: student-crm
 version: 1.0.0
 description: "A simple CAP project."
@@ -8,8 +8,9 @@ build-parameters:
   before-all:
     - builder: custom
       commands:
-        - npm ci
+        - npm install
         - npx cds build --production
+
 modules:
   - name: student-crm-srv
     type: nodejs
@@ -20,20 +21,41 @@ modules:
     build-parameters:
       builder: npm-ci
     provides:
-      - name: srv-api # required by consumers of CAP services (e.g. approuter)
+      - name: srv-api
         properties:
           srv-url: ${default-url}
     requires:
       - name: student-crm-auth
-      - name: student-crm-db
+      - name: encontro-4
 
   - name: student-crm-db-deployer
     type: hdb
     path: gen/db
     parameters:
       buildpack: nodejs_buildpack
+      timeout: 600
+      memory: 512M
+      no-start: true
     requires:
-      - name: student-crm-db
+      - name: encontro-4
+
+  - name: student-crm-ui
+    type: html5
+    path: app/student.crm.ui
+    build-parameters:
+      builder: custom
+      commands:
+        - npm install
+        - npm run build
+    parameters:
+      disk-quota: 256M
+      memory: 256M
+    requires:
+      - name: html5-apps-repo-host
+    provides:
+      - name: ui5-app
+        properties:
+          url: ~{html5-apps-repo-host/app-url}
 
   - name: student-crm
     type: approuter.nodejs
@@ -46,9 +68,14 @@ modules:
       - name: srv-api
         group: destinations
         properties:
-          name: srv-api # must be used in xs-app.json as well
+          name: srv-api
           url: ~{srv-url}
           forwardAuthToken: true
+      - name: ui5-app
+        group: destinations
+        properties:
+          name: ui5-app
+          url: ~{html5-apps-repo-host/app-url}
       - name: student-crm-auth
     provides:
       - name: app-api
@@ -71,8 +98,17 @@ resources:
             - https://*~{app-api/app-uri}/**
     requires:
       - name: app-api
-  - name: student-crm-db
+
+  - name: encontro-4
     type: com.sap.xs.hdi-container
     parameters:
       service: hana
       service-plan: hdi-shared
+
+  - name: html5-apps-repo-host
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: html5-apps-repo
+      service-plan: app-host
+    properties:
+      app-url: ${default-url}
