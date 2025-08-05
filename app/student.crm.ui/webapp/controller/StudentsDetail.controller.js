@@ -74,7 +74,13 @@ sap.ui.define([
 			const oDetailFormModel = this._getMainView().getModel("detailForm");
 			const oStudentData = oDetailFormModel.getProperty("/student");
 			const bIsNew = oDetailFormModel.getProperty("/isNewStudent");
-			const oResourceBundle = this.getResourceBundle();
+			
+			let oResourceBundle;
+			try {
+				oResourceBundle = this.getResourceBundle();
+			} catch {
+				oResourceBundle = null;
+			}
 			
 			if (!oStudentData || !oStudentData.fullname || !oStudentData.email) {
 				MessageBox.error("Please fill in all required fields.");
@@ -260,8 +266,9 @@ sap.ui.define([
 		},
 
 		onRemoveReceiptFile: function () {
+			const removeFileText = this._getResourceText("removeFile", "Remove file");
 			MessageBox.confirm(
-				`${this.getResourceBundle().getText("removeFile")}?`,
+				`${removeFileText}?`,
 				{
 					title: "Confirm File Removal",
 					onClose: (sAction) => {
@@ -273,7 +280,8 @@ sap.ui.define([
 							fileType: null
 						});
 						
-						MessageToast.show(this.getResourceBundle().getText("fileRemoved"));
+						const fileRemovedText = this._getResourceText("fileRemoved", "File removed successfully");
+						MessageToast.show(fileRemovedText);
 					}
 				}
 			);
@@ -326,7 +334,8 @@ sap.ui.define([
 			const oReceipt = oEvent.getSource().getBindingContext("receipts").getObject();
 			
 			if (!oReceipt.fileName || !oReceipt.fileData) {
-				MessageBox.information(this.getResourceBundle().getText("noFileAttached"));
+				const noFileText = this._getResourceText("noFileAttached", "No file attached");
+				MessageBox.information(noFileText);
 				return;
 			}
 			
@@ -338,7 +347,8 @@ sap.ui.define([
 			const oCurrentReceipt = oDetailFormModel.getProperty("/currentReceipt");
 			
 			if (!oCurrentReceipt.fileName || !oCurrentReceipt.fileData) {
-				MessageBox.information(this.getResourceBundle().getText("noFileAttached"));
+				const noFileText = this._getResourceText("noFileAttached", "No file attached");
+				MessageBox.information(noFileText);
 				return;
 			}
 			
@@ -528,7 +538,8 @@ sap.ui.define([
 				const oContext = oBinding.create(oNewStudentData);
 				
 				oContext.created().then(() => {
-					this._showSuccessAndClose(oResourceBundle.getText("studentSaved"));
+					const message = oResourceBundle ? oResourceBundle.getText("studentSaved") : "Student saved successfully";
+					this._showSuccessAndClose(message);
 				}).catch((oError) => {
 					MessageBox.error(`Error creating student: ${oError.message || "Unknown error"}`);
 				});
@@ -544,7 +555,8 @@ sap.ui.define([
 				
 				return oContext.created();
 			}).then(() => {
-				this._showSuccessAndClose(oResourceBundle.getText("studentSaved"));
+				const message = oResourceBundle ? oResourceBundle.getText("studentSaved") : "Student saved successfully";
+				this._showSuccessAndClose(message);
 				this._cleanupOldFiles(aReceipts);
 			}).catch((error) => {
 				MessageBox.error(`Error creating student: ${error.message || "Unknown error"}`);
@@ -594,7 +606,8 @@ sap.ui.define([
 
 		_displayFile: function (oReceipt) {
 			if (!oReceipt.fileData) {
-				MessageBox.error(this.getResourceBundle().getText("fileViewError"));
+				const fileViewErrorText = this._getResourceText("fileViewError", "Error viewing file");
+				MessageBox.error(fileViewErrorText);
 				return;
 			}
 			
@@ -679,7 +692,8 @@ sap.ui.define([
 					fileType: file.type
 				});
 				
-				MessageToast.show(this.getResourceBundle().getText("fileUploaded"));
+				const fileUploadedText = this._getResourceText("fileUploaded", "File uploaded successfully");
+				MessageToast.show(fileUploadedText);
 				event.target.value = '';
 			};
 			
@@ -706,25 +720,30 @@ sap.ui.define([
 				return;
 			}
 			
-			const oModel = this._getMainView().getModel();
-			const mParameters = {
-				success: (data) => {
-					const receiptWithData = {
-						...oReceipt,
-						fileData: `data:${data.mimeType || 'application/octet-stream'};base64,${data.fileContent}`,
-						fileType: data.mimeType || 'application/octet-stream'
-					};
-					
-					this._displayFile(receiptWithData);
+			fetch("/odata/v4/api/downloadReceipt", {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json"
 				},
-				error: (error) => {
-					MessageBox.error(`Error loading file: ${error.message || "File not found"}`);
+				body: JSON.stringify({ fileName: serverFileName })
+			})
+			.then(response => {
+				if (!response.ok) {
+					throw new Error(`HTTP ${response.status}: ${response.statusText}`);
 				}
-			};
-			
-			oModel.callFunction("/downloadReceiptFile", {
-				urlParameters: { fileName: serverFileName },
-				...mParameters
+				return response.json();
+			})
+			.then(data => {
+				const receiptWithData = {
+					...oReceipt,
+					fileData: `data:${data.mimeType || 'application/octet-stream'};base64,${data.fileContent}`,
+					fileType: data.mimeType || 'application/octet-stream'
+				};
+				
+				this._displayFile(receiptWithData);
+			})
+			.catch(error => {
+				MessageBox.error(`Error loading file: ${error.message || "File not found"}`);
 			});
 		},
 
@@ -736,19 +755,24 @@ sap.ui.define([
 				return;
 			}
 			
-			const oModel = this._getMainView().getModel();
-			const mParameters = {
-				success: (data) => {
-					this._createDownloadLink(data.fileContent, oReceipt.fileName || serverFileName, data.mimeType);
+			fetch("/odata/v4/api/downloadReceipt", {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json"
 				},
-				error: (error) => {
-					MessageBox.error(`Error loading file: ${error.message || "File not found"}`);
+				body: JSON.stringify({ fileName: serverFileName })
+			})
+			.then(response => {
+				if (!response.ok) {
+					throw new Error(`HTTP ${response.status}: ${response.statusText}`);
 				}
-			};
-			
-			oModel.callFunction("/downloadReceiptFile", {
-				urlParameters: { fileName: serverFileName },
-				...mParameters
+				return response.json();
+			})
+			.then(data => {
+				this._createDownloadLink(data.fileContent, oReceipt.fileName || serverFileName, data.mimeType);
+			})
+			.catch(error => {
+				MessageBox.error(`Error loading file: ${error.message || "File not found"}`);
 			});
 		},
 
@@ -858,7 +882,6 @@ sap.ui.define([
 		},
 
 		_updateStudentFromDetail: function (oStudentData, oResourceBundle) {
-			const oModel = this._getMainView().getModel();
 			const aReceipts = this._getReceiptsFromModel();
 			
 			if (!this._getMainController()) return;
@@ -881,11 +904,12 @@ sap.ui.define([
 					oContext.setProperty(key, oStudentData[key]);
 				}
 			});
-			
-			oModel.submitBatch().then(() => {
+
+			setTimeout(() => {
 				if (aReceipts.length > 0) {
 					this._updateReceiptsForStudent(oStudentData.ID, aReceipts).then(() => {
-						this._showSuccessAndClose(oResourceBundle.getText("studentUpdated"));
+						const message = oResourceBundle ? oResourceBundle.getText("studentUpdated") : "Student updated successfully";
+						this._showSuccessAndClose(message);
 						this._cleanupOldFiles(aReceipts);
 					}).catch((error) => {
 						MessageBox.error(`Student updated but error with receipts: ${error.message}`);
@@ -897,10 +921,9 @@ sap.ui.define([
 					return;
 				}
 				
-				this._showSuccessAndClose(oResourceBundle.getText("studentUpdated"));
-			}).catch((oError) => {
-				MessageBox.error(`Error updating student: ${oError.message || "Unknown error"}`);
-			});
+				const message = oResourceBundle ? oResourceBundle.getText("studentUpdated") : "Student updated successfully";
+				this._showSuccessAndClose(message);
+			}, 100);
 		},
 
 		_viewReceiptFile: function (oReceipt) {
@@ -914,7 +937,17 @@ sap.ui.define([
 				return;
 			}
 			
-			MessageBox.error(this.getResourceBundle().getText("fileViewError"));
+			const fileViewErrorText = this._getResourceText("fileViewError", "Error viewing file");
+			MessageBox.error(fileViewErrorText);
+		},
+
+		_getResourceText: function(sKey, sDefault) {
+			try {
+				const oResourceBundle = this.getResourceBundle();
+				return oResourceBundle ? oResourceBundle.getText(sKey) : sDefault;
+			} catch {
+				return sDefault;
+			}
 		},
 
 		setDialog: function(oDialog) {

@@ -99,8 +99,6 @@ sap.ui.define([
 			return `${this._getApiBaseUrl()}/Students?$count=true`;
 		},
 
-
-
 		_initializeFilterModel: function () {
 			this.getView().setModel(new JSONModel({
 				filters: { ...this.DEFAULT_FILTER_STATE }
@@ -135,16 +133,16 @@ sap.ui.define([
 					this._updatePaginationWithCount(actualCount || totalCount);
 				})
 				.catch(() => {
-					const oModel = this.getModel();
-					if (oModel) {
-						oModel.read("/Students", {
-							success: (data) => {
-								const totalCount = data.results ? data.results.length : 0;
-								this._updatePaginationWithCount(totalCount);
-							},
-							error: () => {
-							}
+					const oBinding = this.byId(this.TABLE_ID).getBinding("items");
+					if (oBinding) {
+						oBinding.requestContexts(0, 1000).then((aContexts) => {
+							const totalCount = aContexts ? aContexts.length : 0;
+							this._updatePaginationWithCount(totalCount);
+						}).catch(() => {
+							this._updatePaginationWithCount(0);
 						});
+					} else {
+						this._updatePaginationWithCount(0);
 					}
 				});
 		},
@@ -625,20 +623,15 @@ sap.ui.define([
 		},
 
 		_deleteStudent: function (oContext) {
-			const oModel = this.getModel();
-			
-			oModel.remove(oContext.getPath(), {
-				success: function () {
-					MessageToast.show("Student deleted successfully");
-					const oBinding = this.byId(this.TABLE_ID).getBinding("items");
-					if (!oBinding) return;
-					setTimeout(() => {
-						this._updateCountFromBinding(oBinding);
-					}, 200);
-				}.bind(this),
-				error: function (oError) {
-					MessageBox.error("Error deleting student: " + oError.message);
-				}
+			oContext.delete().then(() => {
+				MessageToast.show("Student deleted successfully");
+				const oBinding = this.byId(this.TABLE_ID).getBinding("items");
+				if (!oBinding) return;
+				setTimeout(() => {
+					this._updateCountFromBinding(oBinding);
+				}, 200);
+			}).catch((oError) => {
+				MessageBox.error("Error deleting student: " + (oError.message || oError));
 			});
 		},
 
@@ -652,7 +645,6 @@ sap.ui.define([
 		_openStudentDetail: function (bIsNew, oStudent) {
 			if (!this._oDialog) {
 				sap.ui.require(["sap/ui/core/Fragment", "student/crm/ui/controller/StudentsDetail.controller"], (Fragment, StudentsDetailController) => {
-					// Create controller instance
 					const oController = new StudentsDetailController();
 					
 					Fragment.load({
@@ -663,7 +655,6 @@ sap.ui.define([
 						this._oDetailController = oController;
 						this.getView().addDependent(this._oDialog);
 						
-						// Initialize controller with parent references
 						oController.setMainView(this.getView());
 						oController.setMainController(this);
 						oController.setDialog(this._oDialog);
@@ -674,7 +665,6 @@ sap.ui.define([
 				return;
 			}
 			
-			// Dialog exists, just pass data to controller
 			if (this._oDetailController) {
 				this._oDetailController.openDialog(bIsNew, oStudent);
 			}
