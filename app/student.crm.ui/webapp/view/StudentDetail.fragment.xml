@@ -60,7 +60,7 @@
 								<Label text="{i18n>studentBalance}" />
 								<Input
 									id="balanceInput"
-									value="{ path: 'detailForm>/student/balance', formatter: '.formatBalance' }"
+									value="{ path: 'detailForm>/student/balance', formatter: '.formatter.formatBalance' }"
 									enabled="false" 
 									width="100%"
 									textAlign="Right"/>
@@ -119,8 +119,8 @@
 							<items>
 								<ColumnListItem>
 									<cells>
-										<Text text="{path: 'receipts>amount', formatter: '.formatBalance'}" class="sapThemePositive-asColor" />
-										<Text text="{path: 'receipts>date', formatter: '.formatDate'}" />
+										<Text text="{path: 'receipts>amount', formatter: '.formatter.formatBalance'}" class="sapThemePositive-asColor" />
+										<Text text="{path: 'receipts>date', formatter: '.formatter.formatDate'}" />
 										<HBox>
 											<Button 
 												type="Transparent" 
@@ -214,9 +214,6 @@
 								</HBox>
 							</VBox>
 						</HBox>
-						
-						
-						
 						<Toolbar class="sapUiSmallMarginTop">
 							<Button text="{i18n>saveBtn}" press="onSaveReceipt" type="Emphasized" class="sapUiSizeCompact"/>
 							<Button text="{i18n>cancelBtn}" press="onCancelReceiptEdit" />

@@ -5,11 +5,14 @@ sap.ui.define([
    "sap/ui/model/Filter",
    "sap/ui/model/FilterOperator",
    "sap/ui/model/Sorter",
-   "sap/ui/model/json/JSONModel"
-], function (BaseController, MessageBox, MessageToast, Filter, FilterOperator, Sorter, JSONModel) {
+   "sap/ui/model/json/JSONModel",
+   "student/crm/ui/model/formatter"
+], function (BaseController, MessageBox, MessageToast, Filter, FilterOperator, Sorter, JSONModel, formatter) {
 	"use strict";
 
 	return BaseController.extend("student.crm.ui.controller.Students", {
+
+	formatter: formatter,
 
 	TABLE_ID: "studentsTable",
 	SEARCH_FIELD_ID: "searchField",
@@ -695,54 +698,6 @@ sap.ui.define([
 					return "Warning";
 				default:
 					return "Success";
-			}
-		},
-
-
-
-		formatBalance: function (balance) {
-			if (!balance && balance !== 0) {
-				return "";
-			}
-			
-			const sLocale = sap.ui.getCore().getConfiguration().getLanguage();
-			const formattedNumber = parseFloat(balance).toFixed(2);
-			
-			if (sLocale === "pt" || sLocale === "pt-BR") {
-				return "R$ " + formattedNumber.replace(".", ",");
-			} else {
-				return "$ " + formattedNumber;
-			}
-		},
-
-		formatDate: function (dateValue) {
-			if (!dateValue) {
-				return "";
-			}
-
-			try {
-				if (dateValue instanceof Date) {
-					const day = String(dateValue.getDate()).padStart(2, '0');
-					const month = String(dateValue.getMonth() + 1).padStart(2, '0');
-					const year = dateValue.getFullYear();
-
-					return `${day}/${month}/${year}`;
-				}
-
-				if (typeof dateValue === "string" && dateValue.includes("-")) {
-					const parts = dateValue.split("-");
-					if (parts.length === 3) {
-						const year = parts[0];
-						const month = parts[1];
-						const day = parts[2];
-						
-						return `${day}/${month}/${year}`;
-					}
-				}
-				
-				return String(dateValue);
-			} catch {
-				return "";
 			}
 		},
 

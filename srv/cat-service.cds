@@ -5,10 +5,15 @@ service api {
     entity Receipts as projection on models.Receipt;
     entity CheckInClasses as projection on models.CheckInClass;
 
-    action uploadReceipt(studentId: Integer, amount: Decimal(10,2), content: String) returns Receipts;
+    action uploadReceipt(content: String) returns {
+        filePath: String;
+    };
     function downloadReceiptFile(fileName: String) returns {
-        fileName: String;
         fileContent: String;
         mimeType: String;
+    };
+    action deleteReceipt(fileName: String) returns {
+        success: Boolean;
+        message: String;
     };
 }

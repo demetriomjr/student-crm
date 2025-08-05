@@ -2,10 +2,13 @@ sap.ui.define([
    "student/crm/ui/controller/BaseController",
    "sap/m/MessageBox",
    "sap/m/MessageToast",
-   "sap/ui/model/json/JSONModel"
-], function (BaseController, MessageBox, MessageToast, JSONModel) {
+   "sap/ui/model/json/JSONModel",
+   "student/crm/ui/model/formatter"
+], function (BaseController, MessageBox, MessageToast, JSONModel, formatter) {
 	"use strict";
 	return BaseController.extend("student.crm.ui.controller.StudentsDetail", {
+
+	formatter: formatter,
 
 	ALLOWED_FILE_TYPES: [
 		'application/pdf',
@@ -62,7 +65,9 @@ sap.ui.define([
 		},
 
 		onCancelDetailForm: function () {
-			this._closeDetailDialog();
+			this._cleanupUploadedFiles().then(() => {
+				this._closeDetailDialog();
+			});
 		},
 
 		onSaveStudent: function () {
@@ -78,9 +83,9 @@ sap.ui.define([
 
 			if (bIsNew) {
 				this._createStudentFromDetail(oStudentData, oResourceBundle);
-			} else {
-				this._updateStudentFromDetail(oStudentData, oResourceBundle);
+				return;
 			}
+			this._updateStudentFromDetail(oStudentData, oResourceBundle);
 		},
 
 		onAddReceipt: function () {
@@ -89,7 +94,7 @@ sap.ui.define([
 			oDetailFormModel.setProperty("/showReceiptEditor", true);
 			oDetailFormModel.setProperty("/currentReceipt", {
 				...this.DEFAULT_RECEIPT_STATE,
-				date: this.formatDate(new Date())
+				date: formatter.formatDate(new Date())
 			});
 			
 			this._receiptAmountRaw = "0";
@@ -119,7 +124,7 @@ sap.ui.define([
 						if (sAction !== MessageBox.Action.OK) return;
 						
 						const oReceiptsModel = this._getMainView().getModel("receipts");
-						const aReceipts = oReceiptsModel.getProperty("/receipts") || [];
+						const aReceipts = this._getReceiptsFromModel();
 						const iIndex = parseInt(oContext.getPath().split("/").pop(), 10);
 						
 						if (iIndex < 0 || iIndex >= aReceipts.length) return;
@@ -136,7 +141,7 @@ sap.ui.define([
 			const oContext = oEvent.getSource().getBindingContext("receipts");
 			const oReceipt = oContext.getObject();
 			
-			oReceipt.date = this.formatDate(oReceipt.date);
+			oReceipt.date = formatter.formatDate(oReceipt.date);
 
 			const formattedAmount = oReceipt.amount !== null && oReceipt.amount !== undefined ?
 				parseFloat(oReceipt.amount).toFixed(2) : "0.00";
@@ -201,12 +206,9 @@ sap.ui.define([
 			const oSource = oEvent.getSource();
 			const sSortProperty = oSource.data("sortProperty");
 			const oReceiptsModel = this._getMainView().getModel("receipts");
-			const aReceipts = oReceiptsModel.getProperty("/receipts") || [];
+			const aReceipts = this._getReceiptsFromModel();
 
-			let bDescending = false;
-			if (this._currentReceiptSortProperty === sSortProperty) {
-				bDescending = !this._currentReceiptSortDescending;
-			}
+			const bDescending = this._currentReceiptSortProperty === sSortProperty ? !this._currentReceiptSortDescending : false;
 
 			this._currentReceiptSortProperty = sSortProperty;
 			this._currentReceiptSortDescending = bDescending;
@@ -240,18 +242,10 @@ sap.ui.define([
 		onReceiptDateBlur: function (oEvent) {
 			const oSource = oEvent.getSource();
 			const oDetailFormModel = this.getView().getModel("detailForm");
-			let sDateValue = oSource.getValue().replace(/[^\d]/g, "");
+			const sFormattedDate = formatter.formatDateInput(oSource.getValue());
 
-			if (sDateValue.length >= 2) {
-				sDateValue = `${sDateValue.substring(0,2)}/${sDateValue.substring(2)}`;
-			}
-			if (sDateValue.length >= 4) {
-				sDateValue = `${sDateValue.substring(0,5)}/${sDateValue.substring(5,9)}`;
-			}
-			sDateValue = sDateValue.substring(0, 10);
-
-			oSource.setValue(sDateValue);
-			oDetailFormModel.setProperty("/currentReceipt/date", sDateValue);
+			oSource.setValue(sFormattedDate);
+			oDetailFormModel.setProperty("/currentReceipt/date", sFormattedDate);
 		},
 
 		onReceiptDateChange: function (oEvent) {
@@ -259,15 +253,7 @@ sap.ui.define([
 			const oSource = oEvent.getSource();
 			const oDetailFormModel = this.getView().getModel("detailForm");
 
-			let sFormattedValue = sValue.replace(/[^\d]/g, "");
-			
-			if (sFormattedValue.length > 2) {
-				sFormattedValue = `${sFormattedValue.substring(0,2)}/${sFormattedValue.substring(2)}`;
-			}
-			if (sFormattedValue.length > 5) {
-				sFormattedValue = `${sFormattedValue.substring(0,5)}/${sFormattedValue.substring(5,9)}`;
-			}
-			sFormattedValue = sFormattedValue.substring(0, 10);
+			const sFormattedValue = formatter.formatDateInput(sValue);
 
 			oSource.setValue(sFormattedValue);
 			oDetailFormModel.setProperty("/currentReceipt/date", sFormattedValue);
@@ -297,25 +283,35 @@ sap.ui.define([
 			const oDetailFormModel = this._getMainView().getModel("detailForm");
 			const oCurrentReceipt = oDetailFormModel.getProperty("/currentReceipt");
 			const oReceiptsModel = this._getMainView().getModel("receipts");
-			const aReceipts = oReceiptsModel.getProperty("/receipts") || [];
+			const aReceipts = this._getReceiptsFromModel();
 
 			if (oCurrentReceipt.date) {
-				oCurrentReceipt.date = this.formatDate(oCurrentReceipt.date);
+				oCurrentReceipt.date = formatter.formatDate(oCurrentReceipt.date);
 			}
 
 			if (!oCurrentReceipt.amount || parseFloat(oCurrentReceipt.amount) <= 0) {
 				MessageBox.error("Please enter a valid amount");
 				return;
 			}
-			
-			if (oCurrentReceipt.isNew) {
-				aReceipts.push(oCurrentReceipt);
-			} else {
-				aReceipts[oCurrentReceipt.originalIndex] = oCurrentReceipt;
-			}
 
-			oReceiptsModel.setProperty("/receipts", aReceipts);
-			oDetailFormModel.setProperty("/showReceiptEditor", false);
+			if (oCurrentReceipt.fileData && !oCurrentReceipt.uploadedFileName) {
+				MessageToast.show("Uploading file...");
+				
+				this._uploadFileToServer(oCurrentReceipt).then((uploadedFileName) => {
+					if (!oCurrentReceipt.isNew && oCurrentReceipt.originalFile && oCurrentReceipt.originalFile !== uploadedFileName) {
+						oCurrentReceipt.oldFileToDelete = oCurrentReceipt.originalFile;
+					}
+					
+					oCurrentReceipt.uploadedFileName = uploadedFileName;
+					oCurrentReceipt.fileData = null;
+					this._saveReceiptToClientModel(oCurrentReceipt, aReceipts, oReceiptsModel, oDetailFormModel);
+					MessageToast.show("File uploaded successfully");
+				}).catch((error) => {
+					MessageBox.error(`File upload failed: ${error.message}`);
+				});
+				return;
+			}
+			this._saveReceiptToClientModel(oCurrentReceipt, aReceipts, oReceiptsModel, oDetailFormModel);
 		},
 
 		onUploadReceiptFile: function () {
@@ -365,7 +361,13 @@ sap.ui.define([
 		},
 
 		_closeDetailDialog: function() {
-			this._resetDetailFormState();
+			this._cleanupReceiptInputListeners();
+			
+			const oDetailFormModel = this._getMainView().getModel("detailForm");
+			oDetailFormModel.setProperty("/showReceiptEditor", false);
+			oDetailFormModel.setProperty("/currentReceipt", { ...this.DEFAULT_RECEIPT_STATE });
+
+			this._receiptAmountRaw = "0";
 			if (!this._oDialog) return;
 			this._oDialog.close();
 		},
@@ -406,7 +408,7 @@ sap.ui.define([
 					amount: parseFloat(receipt.amount)
 				};
 				
-				if (receipt.fileData && receipt.fileName) {
+				if (receipt.fileData) {
 					receiptData.content = receipt.fileData.includes(',') ? 
 						receipt.fileData.split(',')[1] : 
 						receipt.fileData;
@@ -428,36 +430,165 @@ sap.ui.define([
 			});
 		},
 
-		_createStudentFromDetail: function (oStudentData, oResourceBundle) {
-			const oModel = this._getMainView().getModel();
-			const oReceiptsModel = this._getMainView().getModel("receipts");
-			const aReceipts = oReceiptsModel ? oReceiptsModel.getProperty("/receipts") : [];
-			
-			const oNewStudentData = Object.assign({}, oStudentData);
-			delete oNewStudentData.ID;
-			
-			const oBinding = oModel.bindList("/Students");
-			const oContext = oBinding.create(oNewStudentData);
-			
-			oContext.created().then(() => {
-				const iStudentId = oContext.getObject().ID;
-				
-				if (aReceipts && aReceipts.length > 0) {
-					this._createReceiptsForStudent(iStudentId, aReceipts).then(() => {
-						this._showSuccessAndClose(oResourceBundle.getText("studentSaved"));
-					}).catch((error) => {
-						MessageBox.error(`Student created but error with receipts: ${error.message}`);
-						this._closeDetailDialog();
-						if (this._getMainController()) {
-							this._getMainController()._refreshTable();
-						}
-					});
+		_uploadFileToServer: function(receipt) {
+			return new Promise((resolve, reject) => {
+				if (!receipt.fileData) {
+					reject(new Error("No file data to upload"));
 					return;
 				}
+
+				const base64Data = receipt.fileData.split(',')[1];
+
+				fetch("/odata/v4/api/uploadReceipt", {
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json"
+					},
+					body: JSON.stringify({
+						content: base64Data
+					})
+				})
+				.then(response => {
+					if (!response.ok) {
+						throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+					}
+					return response.json();
+				})
+				.then(data => {
+					if (!data.filePath) {
+						reject(new Error("No file path returned from server"));
+						return;
+					}
+					resolve(data.filePath);
+				})
+				.catch(reject);
+			});
+		},
+
+		_saveReceiptToClientModel: function(oCurrentReceipt, aReceipts, oReceiptsModel, oDetailFormModel) {
+			if (oCurrentReceipt.isNew) {
+				aReceipts.push(oCurrentReceipt);
+			} else {
+				aReceipts[oCurrentReceipt.originalIndex] = oCurrentReceipt;
+			}
+
+			oReceiptsModel.setProperty("/receipts", aReceipts);
+			oDetailFormModel.setProperty("/showReceiptEditor", false);
+		},
+
+		_cleanupUploadedFiles: function() {
+			const aReceipts = this._getReceiptsFromModel();
+			
+			const filesToDelete = [];
+			
+			aReceipts.forEach(receipt => {
+				if (receipt.uploadedFileName) {
+					filesToDelete.push(receipt.uploadedFileName);
+				}
+				if (receipt.oldFileToDelete) {
+					filesToDelete.push(receipt.oldFileToDelete);
+				}
+			});
+
+			const deletePromises = filesToDelete.map(fileName => this._deleteFileFromServer(fileName));
+			
+			return Promise.all(deletePromises).catch(error => {
+				console.error("Error cleaning up files:", error);
+			});
+		},
+
+		_deleteFileFromServer: function(fileName) {
+			if (!fileName) return Promise.resolve();
+
+			return fetch("/odata/v4/api/deleteReceipt", {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json"
+				},
+				body: JSON.stringify({ fileName: fileName })
+			}).then(response => {
+				if (!response.ok) {
+					console.error(`Failed to delete file ${fileName}: ${response.statusText}`);
+				}
+				return response.json();
+			}).catch(error => {
+				console.error(`Error deleting file ${fileName}:`, error);
+			});
+		},
+
+		_createStudentFromDetail: function (oStudentData, oResourceBundle) {
+			const oModel = this._getMainView().getModel();
+			const aReceipts = this._getReceiptsFromModel();
+			
+			if (!aReceipts || aReceipts.length === 0) {
+				const oNewStudentData = Object.assign({}, oStudentData);
+				delete oNewStudentData.ID;
 				
+				const oBinding = oModel.bindList("/Students");
+				const oContext = oBinding.create(oNewStudentData);
+				
+				oContext.created().then(() => {
+					this._showSuccessAndClose(oResourceBundle.getText("studentSaved"));
+				}).catch((oError) => {
+					MessageBox.error(`Error creating student: ${oError.message || "Unknown error"}`);
+				});
+				return;
+			}
+
+			this._createReceiptsInDatabase(aReceipts).then(() => {
+				const oNewStudentData = Object.assign({}, oStudentData);
+				delete oNewStudentData.ID;
+				
+				const oBinding = oModel.bindList("/Students");
+				const oContext = oBinding.create(oNewStudentData);
+				
+				return oContext.created();
+			}).then(() => {
 				this._showSuccessAndClose(oResourceBundle.getText("studentSaved"));
-			}).catch((oError) => {
-				MessageBox.error(`Error creating student: ${oError.message || "Unknown error"}`);
+				this._cleanupOldFiles(aReceipts);
+			}).catch((error) => {
+				MessageBox.error(`Error creating student: ${error.message || "Unknown error"}`);
+				this._cleanupUploadedFiles();
+			});
+		},
+
+		_createReceiptsInDatabase: function(aReceipts) {
+			const createPromises = aReceipts.map(receipt => {
+				return new Promise((resolve, reject) => {
+					const receiptData = {
+						amount: parseFloat(receipt.amount),
+						date: receipt.date,
+						file: receipt.uploadedFileName || null
+					};
+					
+					const oModel = this._getMainView().getModel();
+					const oBinding = oModel.bindList("/Receipts");
+					const oContext = oBinding.create(receiptData);
+					
+					oContext.created().then(resolve).catch(reject);
+				});
+			});
+			
+			return Promise.all(createPromises);
+		},
+
+		_cleanupOldFiles: function(aReceipts) {
+			const filesToDelete = [];
+			
+			aReceipts.forEach(receipt => {
+				if (receipt.oldFileToDelete) {
+					filesToDelete.push(receipt.oldFileToDelete);
+				}
+			});
+
+			if (filesToDelete.length === 0) return;
+
+			filesToDelete.forEach(fileName => {
+				this._deleteFileFromServer(fileName).then(() => {
+					console.log(`Old file ${fileName} deleted successfully`);
+				}).catch(error => {
+					console.error(`Failed to delete old file ${fileName}:`, error);
+				});
 			});
 		},
 
@@ -476,6 +607,15 @@ sap.ui.define([
 			} else {
 				setTimeout(() => URL.revokeObjectURL(fileURL), 1000);
 			}
+		},
+
+		_getReceiptsFromModel: function() {
+			const oReceiptsModel = this._getMainView().getModel("receipts");
+			return oReceiptsModel ? oReceiptsModel.getProperty("/receipts") || [] : [];
+		},
+
+		_getServerFileName: function(oReceipt) {
+			return oReceipt.file || oReceipt.fileName;
 		},
 
 		_downloadReceiptFile: function (oReceipt) {
@@ -559,7 +699,7 @@ sap.ui.define([
 		},
 
 		_loadAndDisplayFileFromServer: function (oReceipt) {
-			const serverFileName = oReceipt.file || oReceipt.fileName;
+			const serverFileName = this._getServerFileName(oReceipt);
 			
 			if (!serverFileName) {
 				MessageBox.error("File not found");
@@ -589,7 +729,7 @@ sap.ui.define([
 		},
 
 		_loadAndDownloadFileFromServer: function (oReceipt) {
-			const serverFileName = oReceipt.file || oReceipt.fileName;
+			const serverFileName = this._getServerFileName(oReceipt);
 			
 			if (!serverFileName) {
 				MessageBox.error("File not found");
@@ -640,16 +780,6 @@ sap.ui.define([
 				.catch(() => {
 					this._getMainView().setModel(new JSONModel(this.EMPTY_RECEIPTS_MODEL), "receipts");
 				});
-		},
-
-		_resetDetailFormState: function () {
-			this._cleanupReceiptInputListeners();
-			
-			const oDetailFormModel = this._getMainView().getModel("detailForm");
-			oDetailFormModel.setProperty("/showReceiptEditor", false);
-			oDetailFormModel.setProperty("/currentReceipt", { ...this.DEFAULT_RECEIPT_STATE });
-
-			this._receiptAmountRaw = "0";
 		},
 
 		_setCursorToEnd: function(oSource) {
@@ -729,8 +859,7 @@ sap.ui.define([
 
 		_updateStudentFromDetail: function (oStudentData, oResourceBundle) {
 			const oModel = this._getMainView().getModel();
-			const oReceiptsModel = this._getMainView().getModel("receipts");
-			const aReceipts = oReceiptsModel.getProperty("/receipts") || [];
+			const aReceipts = this._getReceiptsFromModel();
 			
 			if (!this._getMainController()) return;
 			
@@ -757,6 +886,7 @@ sap.ui.define([
 				if (aReceipts.length > 0) {
 					this._updateReceiptsForStudent(oStudentData.ID, aReceipts).then(() => {
 						this._showSuccessAndClose(oResourceBundle.getText("studentUpdated"));
+						this._cleanupOldFiles(aReceipts);
 					}).catch((error) => {
 						MessageBox.error(`Student updated but error with receipts: ${error.message}`);
 						this._closeDetailDialog();
@@ -787,27 +917,6 @@ sap.ui.define([
 			MessageBox.error(this.getResourceBundle().getText("fileViewError"));
 		},
 
-		formatDate: function (dateValue) {
-			if (!dateValue) return "";
-
-			if (dateValue instanceof Date) {
-				const day = String(dateValue.getDate()).padStart(2, '0');
-				const month = String(dateValue.getMonth() + 1).padStart(2, '0');
-				const year = dateValue.getFullYear();
-				return `${day}/${month}/${year}`;
-			}
-
-			if (typeof dateValue === "string" && dateValue.includes("-")) {
-				const parts = dateValue.split("-");
-				if (parts.length === 3) {
-					const [year, month, day] = parts;
-					return `${day}/${month}/${year}`;
-				}
-			}
-			
-			return String(dateValue);
-		},
-
 		setDialog: function(oDialog) {
 			this._oDialog = oDialog;
 		},
@@ -829,21 +938,6 @@ sap.ui.define([
 			this._prepareDetailForm(bIsNew, oStudent);
 			if (this._oDialog) {
 				this._oDialog.open();
-			}
-		},
-
-		formatBalance: function (balance) {
-			if (!balance && balance !== 0) {
-				return "";
-			}
-			
-			const sLocale = sap.ui.getCore().getConfiguration().getLanguage();
-			const formattedNumber = parseFloat(balance).toFixed(2);
-			
-			if (sLocale === "pt" || sLocale === "pt-BR") {
-				return "R$ " + formattedNumber.replace(".", ",");
-			} else {
-				return "$ " + formattedNumber;
 			}
 		}
 	});
