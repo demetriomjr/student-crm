@@ -1,10 +1,58 @@
 {
-  "scopes": [],
+  "xsappname": "student-crm",
+  "tenant-mode": "dedicated",
+  "description": "Student CRM Application Security Descriptor",
+  "scopes": [
+    {
+      "name": "$XSAPPNAME.Display",
+      "description": "Display student data"
+    },
+    {
+      "name": "$XSAPPNAME.Create", 
+      "description": "Create student data"
+    },
+    {
+      "name": "$XSAPPNAME.Edit",
+      "description": "Edit student data"
+    },
+    {
+      "name": "$XSAPPNAME.Delete",
+      "description": "Delete student data"
+    }
+  ],
   "attributes": [],
-  "role-templates": [],
+  "role-templates": [
+    {
+      "name": "Viewer",
+      "description": "View student data",
+      "scope-references": [
+        "$XSAPPNAME.Display"
+      ]
+    },
+    {
+      "name": "Editor",
+      "description": "Edit student data",
+      "scope-references": [
+        "$XSAPPNAME.Display",
+        "$XSAPPNAME.Create",
+        "$XSAPPNAME.Edit"
+      ]
+    },
+    {
+      "name": "Admin",
+      "description": "Full access to student data",
+      "scope-references": [
+        "$XSAPPNAME.Display",
+        "$XSAPPNAME.Create", 
+        "$XSAPPNAME.Edit",
+        "$XSAPPNAME.Delete"
+      ]
+    }
+  ],
   "authorities-inheritance": false,
   "oauth2-configuration": {
     "redirect-uris": [
+      "https://*.cfapps.us10-001.hana.ondemand.com/**",
       "https://*.us10-001.hana.ondemand.com/**"
     ]
   }
