@@ -1006,4 +1006,157 @@ sap.ui.define([
       return date.toISOString().split('T')[0];
     }
   });
+{response.statusText}`);
+            }
+
+            const result = await response.json();
+            receipt.filePath = `/uploads/receipts/${result.fileName}`;
+            
+            // Clean up old file if it exists
+            if (receipt.oldFileToDelete) {
+              this._deleteFileFromServer(receipt.oldFileToDelete);
+              delete receipt.oldFileToDelete;
+            }
+          } catch (error) {
+            // Don't throw error - just show message and continue without file
+            MessageBox.error(`File upload failed: ${error.message}. Receipt will be saved without file.`);
+            console.error("File upload error:", error);
+            // Clear file-related properties since upload failed
+            receipt.filePath = null;
+            receipt.fileName = null;
+          }
+        }
+
+        const oModel = this._getMainView().getModel();
+
+        // For existing receipts, update them instead of creating new ones
+        if (!receipt.isNew && receipt.ID) {
+          try {
+            // Find the existing receipt context in the model
+            const sPath = `/Receipts(${receipt.ID})`;
+            const oContext = oModel.getContext(sPath);
+            
+            if (oContext) {
+              // Update the existing receipt properties
+              oContext.setProperty("amount", parseFloat(receipt.amount));
+              oContext.setProperty("date", this._convertDateToISO(receipt.date));
+              oContext.setProperty("fileName", receipt.fileName || null);
+              oContext.setProperty("filePath", receipt.filePath || null);
+              
+              // Submit the changes
+              return oModel.submitBatch(oModel.getUpdateGroupId());
+            }
+          } catch (error) {
+            console.error("Error updating existing receipt:", error);
+            // Fall back to creating a new receipt if update fails
+          }
+        }
+
+        // For new receipts or if update failed, create them
+        const receiptData = {
+          amount: parseFloat(receipt.amount),
+          date: this._convertDateToISO(receipt.date),
+          fileName: receipt.fileName || null,
+          filePath: receipt.filePath || null,
+          student_ID: studentId
+        };
+
+        const oBinding = oModel.bindList("/Receipts");
+        const oContext = oBinding.create(receiptData);
+        return oContext.created();
+      };
+
+      return aReceipts.reduce((promise, receipt) => 
+        promise.then(() => uploadThenPersist(receipt)), Promise.resolve());
+    },
+
+    _fileToDataURL: function (file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    },
+
+    _compressImageFile: function (file) {
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          
+          // Start with more aggressive compression for larger files
+          let maxWidth = 1920;
+          let maxHeight = 1080;
+          
+          // For very large files, start with smaller dimensions
+          if (file.size > 10 * 1024 * 1024) { // > 10MB
+            maxWidth = 1280;
+            maxHeight = 720;
+          } else if (file.size > 5 * 1024 * 1024) { // > 5MB
+            maxWidth = 1600;
+            maxHeight = 900;
+          }
+          
+          let { width, height } = img;
+          
+          // Always resize to stay within bounds
+          if (width > maxWidth || height > maxHeight) {
+            const ratio = Math.min(maxWidth / width, maxHeight / height);
+            width *= ratio;
+            height *= ratio;
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          // Start with lower quality for larger files
+          let initialQuality = 0.7;
+          if (file.size > 10 * 1024 * 1024) {
+            initialQuality = 0.5;
+          } else if (file.size > 5 * 1024 * 1024) {
+            initialQuality = 0.6;
+          }
+          
+          this._compressToTarget(canvas, file.type, initialQuality, resolve);
+        };
+        
+        const reader = new FileReader();
+        reader.onload = (e) => img.src = e.target.result;
+        reader.readAsDataURL(file);
+      });
+    },
+
+    _compressToTarget: function (canvas, fileType, quality, resolve) {
+      const maxSize = 4.5 * 1024 * 1024; // Slightly under 5MB to account for base64 encoding overhead
+      
+      canvas.toBlob((blob) => {
+        if (blob.size <= maxSize || quality <= 0.1) {
+          const reader = new FileReader();
+          reader.onload = (e) => resolve(e.target.result);
+          reader.readAsDataURL(blob);
+        } else {
+          // Reduce quality more aggressively for larger files
+          const qualityReduction = blob.size > 8 * 1024 * 1024 ? 0.2 : 0.1;
+          this._compressToTarget(canvas, fileType, Math.max(0.1, quality - qualityReduction), resolve);
+        }
+      }, 'image/jpeg', quality); // Always convert to JPEG for better compression
+    },
+
+    _convertDateToISO: function (dateString) {
+      if (!dateString) return null;
+      
+      const parts = dateString.split('/');
+      if (parts.length !== 3) return null;
+      
+      const day = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1;
+      const year = parseInt(parts[2], 10);
+      
+      const date = new Date(year, month, day);
+      return date.toISOString().split('T')[0];
+    }
+  });
 });
