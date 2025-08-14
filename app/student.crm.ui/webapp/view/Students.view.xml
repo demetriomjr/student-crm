@@ -6,224 +6,236 @@
 	xmlns:core="sap.ui.core"
 	xmlns:form="sap.ui.layout.form"
 	xmlns:fb="sap.ui.comp.filterbar">
-
 	<Page
 		title="{i18n>studentsPageTitle}"
 		id="studentsPage"
 		titleAlignment="Center"
 		class="sapUiContentPadding">
 		<content>
-						<!-- FilterBar seguindo padrões SAPUI5 -->
-						<fb:FilterBar
-							id="studentsFilterBar"
-							search="onFilterBarSearch"
-							clear="onFilterBarClear"
-							showClearButton="true"
-							showGoButton="true"
-							showRestoreButton="true"
-							class="sapUiLargeMarginBottom">
-							<fb:filterItems>
-								<!-- Student ID Filter -->
-								<fb:FilterItem
-									name="studentId"
-									label="{i18n>studentId}"
-									mandatory="false"
-									visible="true">
-									<fb:control>
-										<MultiInput
-											id="studentIdMultiInput"
-											placeholder="{i18n>enterStudentIds}"
-											width="250px"
-											tokens="{filter>/filters/studentIds}"
-											tokenUpdate="onTokenUpdate"
-											suggestionItemSelected="onSuggestionItemSelected">
-											<tokens>
-												<Token key="{filter>key}" text="{filter>text}" delete="onTokenDelete" />
-											</tokens>
-										</MultiInput>
-									</fb:control>
-								</fb:FilterItem>
-
-								<!-- Full Name Filter -->
-								<fb:FilterItem
-									name="fullName"
-									label="{i18n>fullName}"
-									mandatory="false"
-									visible="true">
-									<fb:control>
-										<MultiInput
-											id="fullNameMultiInput"
-											placeholder="{i18n>enterFullNames}"
-											width="300px"
-											tokens="{filter>/filters/fullNames}"
-											tokenUpdate="onTokenUpdate"
-											suggestionItemSelected="onSuggestionItemSelected">
-											<tokens>
-												<Token key="{filter>key}" text="{filter>text}" delete="onTokenDelete" />
-											</tokens>
-										</MultiInput>
-									</fb:control>
-								</fb:FilterItem>
-
-								<!-- Email Filter -->
-								<fb:FilterItem
-									name="email"
-									label="{i18n>email}"
-									mandatory="false"
-									visible="true">
-									<fb:control>
-										<MultiInput
-											id="emailMultiInput"
-											placeholder="{i18n>enterEmails}"
-											width="300px"
-											tokens="{filter>/filters/emails}"
-											tokenUpdate="onTokenUpdate"
-											suggestionItemSelected="onSuggestionItemSelected">
-											<tokens>
-												<Token key="{filter>key}" text="{filter>text}" delete="onTokenDelete" />
-											</tokens>
-										</MultiInput>
-									</fb:control>
-								</fb:FilterItem>
-
-								<!-- Balance Filter -->
-								<fb:FilterItem
-									name="balance"
-									label="{i18n>balance}"
-									mandatory="false"
-									visible="true">
-									<fb:control>
-										<MultiInput
-											id="balanceMultiInput"
-											placeholder="{i18n>enterBalanceRanges}"
-											width="250px"
-											tokens="{filter>/filters/balanceRanges}"
-											tokenUpdate="onTokenUpdate"
-											suggestionItemSelected="onSuggestionItemSelected">
-											<tokens>
-												<Token key="{filter>key}" text="{filter>text}" delete="onTokenDelete" />
-											</tokens>
-										</MultiInput>
-									</fb:control>
-								</fb:FilterItem>
-
-								<!-- Status Filter -->
-								<fb:FilterItem
-									name="status"
-									label="{i18n>status}"
-									mandatory="false"
-									visible="true">
-									<fb:control>
-										<MultiInput
-											id="statusMultiInput"
-											placeholder="{i18n>selectStatus}"
-											width="200px"
-											tokens="{filter>/filters/statusList}"
-											tokenUpdate="onTokenUpdate"
-											suggestionItemSelected="onSuggestionItemSelected">
-											<tokens>
-												<Token key="{filter>key}" text="{filter>text}" delete="onTokenDelete" />
-											</tokens>
-											<suggestionItems>
-												<core:Item key="active" text="{i18n>active}" />
-												<core:Item key="inactive" text="{i18n>inactive}" />
-												<core:Item key="pending" text="{i18n>pending}" />
-											</suggestionItems>
-										</MultiInput>
-									</fb:control>
-								</fb:FilterItem>
-							</fb:filterItems>
-						</fb:FilterBar> 
-							<Table
-								id="studentsTable"
-								items="{
-									path: '/Students',
-									parameters: {
-										$count: true,
-										$orderby: 'ID desc'
-									}
+			<fb:FilterBar
+				id="studentsFilterBar"
+				search="onFilterBarSearch"
+				clear="onFilterBarClear"
+				showGoOnFB="true"
+				showRestoreButton="true"
+				filterBarExpanded="true"
+				class="sapUiLargeMarginBottom">
+				<fb:filterGroupItems>
+					<fb:FilterGroupItem
+						groupName="basic"
+						name="fullName"
+						label="{i18n>fullName}"
+						visible="true"
+						visibleInFilterBar="true">
+						<fb:control>
+							<MultiInput
+								id="fullNameMultiInput"
+								placeholder="{i18n>namePlaceholder}"
+								width="300px"
+								tokens="{filter>/filters/fullNames}"
+								tokenUpdate="onTokenUpdate"
+								suggestionItemSelected="onSuggestionItemSelected"
+								submit="onFilterInputSubmit">
+								<tokens>
+									<Token
+										key="{filter>key}"
+										text="{filter>text}"
+										delete="onTokenDelete" />
+								</tokens>
+							</MultiInput>
+						</fb:control>
+					</fb:FilterGroupItem>
+					<fb:FilterGroupItem
+						groupName="basic"
+						name="ID"
+						label="{i18n>ID}"
+						visible="true"
+						visibleInFilterBar="false">
+						<fb:control>
+							<MultiInput
+								id="studentIdMultiInput"
+								placeholder="{i18n>idPlaceholder}"
+								width="250px"
+								tokens="{filter>/filters/studentIds}"
+								tokenUpdate="onTokenUpdate"
+								suggestionItemSelected="onSuggestionItemSelected"
+								submit="onFilterInputSubmit">
+								<tokens>
+									<Token key="{filter>key}" text="{filter>text}" delete="onTokenDelete" />
+								</tokens>
+							</MultiInput>
+						</fb:control>
+					</fb:FilterGroupItem>
+					<fb:FilterGroupItem
+						groupName="basic"
+						name="email"
+						label="{i18n>email}"
+						visible="true"
+						visibleInFilterBar="false">
+						<fb:control>
+							<MultiInput
+								id="emailMultiInput"
+								placeholder="{i18n>emailPlaceholder}"
+								width="300px"
+								tokens="{filter>/filters/emails}"
+								tokenUpdate="onTokenUpdate"
+								suggestionItemSelected="onSuggestionItemSelected"
+								submit="onFilterInputSubmit">
+								<tokens>
+									<Token key="{filter>key}" text="{filter>text}" delete="onTokenDelete" />
+								</tokens>
+							</MultiInput>
+						</fb:control>
+					</fb:FilterGroupItem>
+					<fb:FilterGroupItem
+						groupName="basic"
+						name="balance"
+						label="{i18n>balance}"
+						visible="true"
+						visibleInFilterBar="false">
+						<fb:control>
+							<MultiInput
+								id="balanceMultiInput"
+								placeholder="{i18n>balanceRangePlaceholder}"
+								width="250px"
+								tokens="{filter>/filters/balanceRanges}"
+								tokenUpdate="onTokenUpdate"
+								suggestionItemSelected="onSuggestionItemSelected"
+								submit="onFilterInputSubmit"
+								liveChange="onBalanceInputLiveChange">
+								<tokens>
+									<Token key="{filter>key}" text="{filter>text}" delete="onTokenDelete" />
+								</tokens>
+							</MultiInput>
+						</fb:control>
+					</fb:FilterGroupItem>
+					<fb:FilterGroupItem
+						groupName="basic"
+						name="status"
+						label="{i18n>status}"
+						visible="true"
+						visibleInFilterBar="false">
+						<fb:control>
+							<MultiInput
+								id="statusMultiInput"
+								placeholder="{i18n>statusPlaceholder}"
+								width="200px"
+								tokens="{filter>/filters/statusList}"
+								tokenUpdate="onTokenUpdate"
+								suggestionItemSelected="onSuggestionItemSelected"
+								submit="onFilterInputSubmit">
+								<tokens>
+									<Token key="{filter>key}" text="{filter>text}" delete="onTokenDelete" />
+								</tokens>
+								<suggestionItems>
+									<core:Item key="active" text="{i18n>active}" />
+									<core:Item key="inactive" text="{i18n>inactive}" />
+									<core:Item key="pending" text="{i18n>pending}" />
+								</suggestionItems>
+							</MultiInput>
+						</fb:control>
+					</fb:FilterGroupItem>
+				</fb:filterGroupItems>
+			</fb:FilterBar>
+			<Table
+				id="studentsTable"
+				items="{
+					path: '/Students',
+					parameters: {
+						$count: true,
+						$orderby: 'ID desc'
+					}
+				}"
+				width="auto"
+				fixedLayout="false"
+				growing="true"
+				growingThreshold="10"
+				sticky="ColumnHeaders,HeaderToolbar"
+				busyIndicatorDelay="0"
+				ariaLabelledBy="studentsTableTitle"
+				updateFinished="onTableUpdateFinished">
+				<headerToolbar>
+					<Toolbar>
+						<Title
+							id="studentsTableTitle"
+							text="{i18n>studentsTableTitle} ({pagination>/totalItems})" />
+						<ToolbarSpacer />
+						<Button
+							id="addStudentButton"
+							text="{i18n>addStudentBtn}"
+							type="Emphasized"
+							press="onAddStudent"
+							icon="sap-icon://add" />
+					</Toolbar>
+				</headerToolbar>
+				<columns>
+					<Column
+						width="4rem"
+						hAlign="Center">
+						<Text text="{i18n>ID}" />
+					</Column>
+					<Column>
+						<Text text="{i18n>fullName}" />
+					</Column>
+					<Column>
+						<Text text="{i18n>email}" />
+					</Column>
+					<Column>
+						<Text text="{i18n>balance}" />
+					</Column>
+					<Column>
+						<Text text="{i18n>lastPayment}" />
+					</Column>
+					<Column width="8rem">
+						<Text text="{i18n>actions}" />
+					</Column>
+				</columns>
+				<items>
+					<ColumnListItem
+						type="Active"
+						press="onStudentPress">
+						<cells>
+							<Text text="{ID}" />
+							<Text text="{fullname}" />
+							<Text text="{email}" />
+							<ObjectNumber
+								number="{
+									path: 'balance',
+									formatter: '.formatter.formatBalanceDisplay'
 								}"
-								width="auto"
-								fixedLayout="false"
-                                mode="MultiSelect">
-								<headerToolbar>
-									<Toolbar>
-										<Title text="{i18n>studentsTableTitle}" />
-										<ToolbarSpacer />
-										<Text text="{i18n>totalItems}: {pagination>/totalItems}" />
-										<ToolbarSeparator />
-										<Button
-											id="addStudentButton"
-											text="{i18n>addStudentBtn}"
-											type="Emphasized"
-											press="onAddStudent"
-											icon="sap-icon://add" />
-									</Toolbar>
-								</headerToolbar>
-								<columns>
-									<Column width="4rem" hAlign="Center">
-										<Text text="{i18n>ID}" />
-									</Column>
-									<Column>
-										<Text text="{i18n>fullName}" />
-									</Column>
-									<Column>
-                                        <Text text="{i18n>email}" />
-									</Column>
-									<Column>					
-                                        <Text text="{i18n>balance}" />
-									</Column>
-									<Column>				
-										<Text text="{i18n>lastPayment}" />
-									</Column>
-									<Column width="8rem">
-										<Text text="{i18n>actions}" />
-									</Column>
-								</columns>
-								<items>
-									<ColumnListItem press="onStudentPress">
-										<cells>
-											<Text text="{ID}" />
-											<Text text="{fullname}" />
-											<Text text="{email}" />
-											<ObjectNumber
-												number="{
-													path: 'balance',
-													formatter: '.formatter.formatBalance'
-												}"
-												state="{
-													path: 'balance',
-													formatter: '.formatBalanceState'
-												}" />
-											<Text text="{
-												path: 'lastPaymentAt',
-												type: 'sap.ui.model.type.String',
-												formatter: '.formatter.formatDate'
-											}" />
-											<HBox>
-												<Button
-													icon="sap-icon://edit"
-													type="Transparent"
-													press="onEditStudent"
-													tooltip="{i18n>editTooltip}"
-													class="sapUiTinyMarginEnd" />
-												<Button
-													icon="sap-icon://delete"
-													type="Transparent"
-													press="onDeleteStudent"
-													tooltip="{i18n>deleteTooltip}"
-													class="sapUiTinyMarginEnd" />
-												<Button
-													icon="sap-icon://receipt"
-													type="Transparent"
-													press="onViewReceipts"
-													tooltip="{i18n>receiptsTooltip}" />
-											</HBox>
-										</cells>
-									</ColumnListItem>
-								</items>
-							</Table>
+								state="{
+									path: 'balance',
+									formatter: '.formatter.formatBalanceState'
+								}" />
+							<Text
+								text="{
+									path: 'lastPaymentAt',
+									type: 'sap.ui.model.type.String',
+									formatter: '.formatter.formatDate'
+								}" />
+							<HBox>
+								<Button
+									icon="sap-icon://edit"
+									type="Transparent"
+									press="onStudentPress"
+									tooltip="{i18n>editTooltip}"
+									class="sapUiTinyMarginEnd" />
+								<Button
+									icon="sap-icon://delete"
+									type="Transparent"
+									press="onDeleteStudent"
+									tooltip="{i18n>deleteTooltip}"
+									class="sapUiTinyMarginEnd" />
+								<Button
+									icon="sap-icon://receipt"
+									type="Transparent"
+									press="onViewReceipts"
+									tooltip="{i18n>receiptsTooltip}" />
+							</HBox>
+						</cells>
+					</ColumnListItem>
+				</items>
+			</Table>
 		</content>
 	</Page>
-
 </mvc:View>

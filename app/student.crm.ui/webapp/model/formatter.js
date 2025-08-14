@@ -1,5 +1,28 @@
-sap.ui.define([], function () {
+sap.ui.define([
+	"sap/ui/core/library",
+	"sap/ui/core/format/NumberFormat"
+], function (coreLibrary, NumberFormat) {
 	"use strict";
+
+	const ValueState = coreLibrary.ValueState; // recommended import path (avoids deprecated pseudo module)
+
+	// Lazy singleton currency formatter per locale & currency
+	let _oCurrencyFormatter; 
+	function _getCurrencyFormatter() {
+		if (!_oCurrencyFormatter) {
+			const sLocale = sap.ui.getCore().getConfiguration().getLanguage();
+			// Decide currency by locale (extend if needed)
+			const sCurrency = (sLocale === "pt" || sLocale === "pt-BR") ? "BRL" : "USD";
+			_oCurrencyFormatter = NumberFormat.getCurrencyInstance({
+				currencyCode: false, // show symbol, not code
+				showMeasure: false, // we'll prefix manually
+				minFractionDigits: 2,
+				maxFractionDigits: 2
+			});
+			_oCurrencyFormatter._symbol = (sCurrency === "BRL") ? "R$" : "$"; // store chosen symbol
+		}
+		return _oCurrencyFormatter;
+	}
 
 	return {
 		/**
@@ -24,21 +47,34 @@ sap.ui.define([], function () {
 		},
 
 		/**
-		 * Formats balance with locale-aware currency
-		 * @public
-		 * @param {number} nValue balance value to be formatted
-		 * @returns {string} formatted balance with currency symbol
+		 * Formats balance with currency symbol prefix (R$ / $) respecting locale thousands and decimal separators.
+		 * ObjectNumber.number can accept a string; we return a display string directly.
+		 * @param {number|string} nValue raw balance
+		 * @returns {string}
 		 */
-		formatBalance: function(nValue) {
-			if (nValue === undefined || nValue === null) return "";
-			
-			const numValue = parseFloat(nValue);
-			if (isNaN(numValue)) return "";
-			
-			const sLocale = sap.ui.getCore().getConfiguration().getLanguage();
-			const sCurrency = (sLocale === "pt" || sLocale === "pt-BR") ? "R$" : "$";
-			
-			return `${sCurrency} ${numValue.toFixed(2)}`;
+		formatBalanceDisplay: function (nValue) {
+			const oFmt = _getCurrencyFormatter();
+			const f = parseFloat(nValue);
+			if (isNaN(f)) return oFmt._symbol + " 0,00";
+			// NumberFormat returns locale-specific separators
+			const sFormatted = oFmt.format(f).replace(/\s+/g, '');
+			// Ensure decimal separator for BRL is comma; NumberFormat already handles locale but enforce symbol prefix format
+			return oFmt._symbol + " " + sFormatted;
+		},
+
+		/**
+		 * Determines the ValueState for balance display
+		 * @public
+		 * @param {number} nValue balance value to check
+		 * @returns {sap.ui.core.ValueState} ValueState enum value
+		 */
+		formatBalanceState: function (nValue) {
+			const f = parseFloat(nValue);
+			if (isNaN(f)) return ValueState.None;
+			if (f < 0) return ValueState.Error;
+			if (f === 0) return ValueState.Warning;
+			if (f > 1000) return ValueState.Success;
+			return ValueState.Information;
 		},
 
 		/**

@@ -2,13 +2,27 @@ const FileManager = require('./utils/FileManager');
 
 module.exports = srv => {
   srv.on('uploadReceipt', async req => {
-    try {
-      if (!req.data || !req.data.content) {
-        req.error(400, 'Content is required');
-        return;
-      }
+    if (!req.data?.content) {
+      req.error(400, 'Content is required');
+      return;
+    }
 
-      const fileName = `receipt_${Date.now()}.jpg`;
+    try {
+      const timestamp = Date.now();
+      const randomNum = Math.floor(1000 + Math.random() * 9000);
+      
+      // Get the proper file extension from the original filename
+      const originalFileName = req.data.originalFileName;
+      let extension = '.jpg'; // default extension
+      
+      if (originalFileName) {
+        const lastDotIndex = originalFileName.lastIndexOf('.');
+        if (lastDotIndex > 0) {
+          extension = originalFileName.substring(lastDotIndex);
+        }
+      }
+      
+      const fileName = `${timestamp}-${randomNum}${extension}`;
       const content = req.data.content;
 
       const validation = FileManager.validateFile(fileName, content);
@@ -17,15 +31,13 @@ module.exports = srv => {
         return;
       }
 
-      const uniqueFileName = FileManager.generateFileName(fileName);
-      const saveResult = FileManager.saveFile(uniqueFileName, content);
-      
+      const saveResult = FileManager.saveFile(fileName, content);
       if (!saveResult.success) {
         req.error(500, `File upload failed: ${saveResult.error}`);
         return;
       }
       
-      return { filePath: uniqueFileName };
+      return { fileName };
     } catch (error) {
       console.error('Error in uploadReceipt:', error);
       req.error(500, `Upload failed: ${error.message}`);

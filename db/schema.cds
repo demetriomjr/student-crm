@@ -16,7 +16,8 @@ entity Receipt: managed {
   student: Association to Student;
   amount: Decimal(10,2);
   date: Date;
-  file: String(255);
+  fileName: String(255);
+  filePath: String(255);
 }
 
 entity CheckInClass: managed {

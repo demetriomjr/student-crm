@@ -23,7 +23,7 @@
     "@sap/cds-dk": ">=8"
   },
   "scripts": {
-    "start": "cds-serve"
+    
   },
   "cds": {
     "requires": {
@@ -31,6 +31,14 @@
         "auth": "xsuaa",
         "db": "hana"
       }
+    },
+    "server": {
+      "compression": {
+        "threshold": 1024
+      }
+    },
+    "features": {
+      "express_limit": "10mb"
     }
   }
 }

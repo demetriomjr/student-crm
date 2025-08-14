@@ -1,6 +1,5 @@
 {
 	"_version": "1.12.0",
-
 	"sap.app": {
 		"id": "student.crm.ui",
 		"type": "application",
@@ -25,7 +24,6 @@
 			}
 		}
 	},
-
 	"sap.ui": {
 		"technology": "UI5",
 		"icons": {},
@@ -35,7 +33,6 @@
 			"phone": true
 		}
 	},
-
 	"sap.ui5": {
 		"flexEnabled": false,
 		"rootView": {
@@ -43,7 +40,6 @@
 			"type": "XML",
 			"id": "app"
 		},
-
 		"dependencies": {
 			"minUI5Version": "1.138.0",
 			"libs": {
@@ -52,24 +48,21 @@
 				"sap.ui.layout": {}
 			}
 		},
-
 		"handleValidation": true,
-
 		"contentDensities": {
 			"compact": true,
 			"cozy": true
 		},
-
 		"models": {
 			"i18n": {
 				"type": "sap.ui.model.resource.ResourceModel",
 			"settings": {
 				"bundleName": "student.crm.ui.i18n.i18n",
-				"supportedLocales": ["en", "de", "pt"],
-				"fallbackLocale": "en",
+				"supportedLocales": ["de", "pt"],
+				"fallbackLocale": "",
 				"async": true
-				}
-			},
+					}
+				},
 			"": {
 				"dataSource": "mainService",
 				"type": "sap.ui.model.odata.v4.ODataModel",
@@ -81,7 +74,6 @@
 				}
 			}
 		},
-
 		"routing": {
 			"config": {
 				"routerClass": "sap.m.routing.Router",

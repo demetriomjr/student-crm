@@ -1,822 +1,508 @@
 sap.ui.define([
-   "student/crm/ui/controller/BaseController",
-   "sap/m/MessageBox",
-   "sap/m/MessageToast",
-   "sap/ui/model/Filter",
-   "sap/ui/model/FilterOperator",
-   "sap/ui/model/Sorter",
-   "sap/ui/model/json/JSONModel",
-   "student/crm/ui/model/formatter"
-], function (BaseController, MessageBox, MessageToast, Filter, FilterOperator, Sorter, JSONModel, formatter) {
-	"use strict";
-
-	return BaseController.extend("student.crm.ui.controller.Students", {
-
-	formatter: formatter,
-
-	TABLE_ID: "studentsTable",
-	SEARCH_FIELD_ID: "searchField",
-	
-	MODEL_NAMES: {
-		FILTER: "filter",
-		PAGINATION: "pagination", 
-		RECEIPTS: "receipts",
-		I18N: "i18n"
-	},
-
-	SORT_ICON_IDS: {
-		STUDENTS: ["sortIconID", "sortIconFullName", "sortIconEmail", "sortIconBalance", "sortIconLastPayment"],
-		RECEIPTS: ["sortIconReceiptAmount", "sortIconReceiptDate"]
-	},
-
-	INPUT_IDS: {
-		ID_FROM: "idFromInput",
-		ID_TO: "idToInput", 
-		NAME_FILTER: "nameFilterInput",
-		BALANCE_FROM: "balanceFromInput",
-		BALANCE_TO: "balanceToInput",
-		DATE_FROM: "dateFromInput",
-		DATE_TO: "dateToInput"
-	},
-
-	DEFAULT_FILTER_STATE: {
-		idFrom: "",
-		idTo: "",
-		email: "",
-		balanceFrom: "0.00",
-		balanceTo: "0.00",
-		dateFrom: null,
-		dateTo: null,
-		searchQuery: ""
-	},
-
-	DEFAULT_PAGINATION_STATE: {
-		currentPage: 1,
-		totalPages: 1,
-		hasPrevious: false,
-		hasNext: false,
-		totalItems: 0
-	},
-
-		onInit: function () {
-			this._currentSortProperty = null;
-			this._currentSortDescending = false;
-			this._currentReceiptSortProperty = null;
-			this._currentReceiptSortDescending = false;
-			this._initializeFilterModel();
-			this._initializePaginationModel();
-			this._checkAuthentication();
-		},
-
-		onExit: function () {
-			if (!this._filterTimeout) return;
-			clearTimeout(this._filterTimeout);
-		},
-
-		_getApiBaseUrl: function () {
-			const oModel = this.getModel();
-			if (oModel && oModel.sServiceUrl) {
-				const sServiceUrl = oModel.sServiceUrl.replace(/\/$/, '');
-				
-				if (!sServiceUrl.startsWith('/')) return sServiceUrl;
-				
-				const sCurrentOrigin = window.location.origin;
-				const sBackendOrigin = sCurrentOrigin.includes(':8080') ? 
-					sCurrentOrigin.replace(':8080', ':4004') : sCurrentOrigin;
-				return sBackendOrigin + sServiceUrl;
-			}
-			
-			const oManifest = this.getOwnerComponent().getManifest();
-			const sDataSourceUri = oManifest["sap.app"].dataSources.mainService.uri;
-			const sCurrentOrigin = window.location.origin;
-			const sBackendOrigin = sCurrentOrigin.includes(':8080') ?
-				sCurrentOrigin.replace(':8080', ':4004') : sCurrentOrigin;
-			
-			return sBackendOrigin + sDataSourceUri.replace(/\/$/, '');
-		},
-
-		_getStudentsApiUrl: function () {
-			return `${this._getApiBaseUrl()}/Students?$count=true`;
-		},
-
-		_initializeFilterModel: function () {
-			this.getView().setModel(new JSONModel({
-				filters: { ...this.DEFAULT_FILTER_STATE }
-			}), this.MODEL_NAMES.FILTER);
-			this._balanceFromRaw = "0";
-			this._balanceToRaw = "0";
-			this._previousFilters = { ...this.DEFAULT_FILTER_STATE };
-		},
-
-		_initializePaginationModel: function () {
-			this._pageSize = 10;
-			this.getView().setModel(new JSONModel({ ...this.DEFAULT_PAGINATION_STATE }), this.MODEL_NAMES.PAGINATION);
-		},
-
-		_fetchTotalCount: function() {
-			const oBinding = this.byId(this.TABLE_ID).getBinding("items");
-			const hasFilters = oBinding.getFilters() && oBinding.getFilters().length > 0;
-			
-			if (hasFilters) {
-				oBinding.requestContexts(0, 1000).then((aAllContexts) => {
-					const filteredCount = aAllContexts ? aAllContexts.length : 0;
-					this._updatePaginationWithCount(filteredCount);
-				}).catch(() => {
-				});
-				return;
-			}
-			fetch(this._getStudentsApiUrl())
-				.then(response => response.json())
-				.then(data => {
-					const totalCount = data.value ? data.value.length : 0;
-					const actualCount = data["@odata.count"] || totalCount;
-					this._updatePaginationWithCount(actualCount || totalCount);
-				})
-				.catch(() => {
-					const oBinding = this.byId(this.TABLE_ID).getBinding("items");
-					if (oBinding) {
-						oBinding.requestContexts(0, 1000).then((aContexts) => {
-							const totalCount = aContexts ? aContexts.length : 0;
-							this._updatePaginationWithCount(totalCount);
-						}).catch(() => {
-							this._updatePaginationWithCount(0);
-						});
-					} else {
-						this._updatePaginationWithCount(0);
-					}
-				});
-		},
-
-		_updatePaginationWithCount: function(totalCount) {
-			const oPaginationModel = this.getView().getModel(this.MODEL_NAMES.PAGINATION);
-			const currentPage = oPaginationModel.getProperty("/currentPage") || 1;
-			const totalPages = Math.max(1, Math.ceil(totalCount / this._pageSize));
-			oPaginationModel.setProperty("/totalItems", totalCount);
-			oPaginationModel.setProperty("/totalPages", totalPages);
-			oPaginationModel.setProperty("/hasPrevious", currentPage > 1);
-			oPaginationModel.setProperty("/hasNext", currentPage < totalPages);
-		},
-
-		_updateCountAfterFilter: function() {
-			const oBinding = this.byId(this.TABLE_ID).getBinding("items");
-			if (!oBinding) return;
-			setTimeout(() => {
-				this._updateCountFromBinding(oBinding);
-			}, 300);
-		},
-
-		_checkAuthentication: function () {
-			const isLoggedIn = sessionStorage.getItem("isLoggedIn");
-			if (!isLoggedIn || isLoggedIn !== "true") {
-				this.navTo("main");
-				return false;
-			}
-			setTimeout(() => {
-				this._initializePagination();
-			}, 100);
-			return true;
-		},
-
-		_initializePagination: function () {
-			const oBinding = this.byId(this.TABLE_ID).getBinding("items");
-			if (!oBinding) {
-				setTimeout(() => {
-					this._initializePagination();
-				}, 200);
-				return;
-			}
-			oBinding.changeParameters({
-				"$skip": 0,
-				"$top": this._pageSize,
-				"$count": true
-			});
-			this._bindToCount(oBinding);
-		},
-
-		_bindToCount: function(oBinding) {
-			oBinding.attachChange(() => {
-				this._updateCountFromBinding(oBinding);
-			});
-			oBinding.attachDataReceived(() => {
-				this._updateCountFromBinding(oBinding);
-			});
-			setTimeout(() => {
-				this._updateCountFromBinding(oBinding);
-			}, 100);
-		},
-
-		_updateCountFromBinding: function(oBinding) {
-			let totalCount = 0;
-			if (typeof oBinding.getCount === 'function') {
-				totalCount = oBinding.getCount();
-			}
-			if (totalCount === 0 && oBinding.getHeaderContext) {
-				try {
-					const oHeaderContext = oBinding.getHeaderContext();
-					if (!oHeaderContext || !oHeaderContext.getProperty) return;
-					totalCount = oHeaderContext.getProperty("$count") || 0;
-				} catch (error) {
-					console.warn("Error getting header context:", error);
-				}
-			}
-			if (totalCount === 0 && typeof oBinding.getLength === 'function') {
-				totalCount = oBinding.getLength() || 0;
-			}
-			if (totalCount === 0) {
-				const aContexts = oBinding.getContexts();
-				if (!aContexts || !Array.isArray(aContexts)) return;
-				totalCount = aContexts.length;
-			}
-			if (totalCount < 0) return;
-			this._updatePaginationWithCount(totalCount);
-		},
-		
-		onSearch: function (oEvent) {
-			const oBinding = this.byId(this.TABLE_ID).getBinding("items");
-			const sQuery = oEvent.getParameter("newValue");
-
-			if (!sQuery || sQuery.length === 0) {
-				oBinding.filter([]);
-				this._goToPage(1);
-				this._updateCountAfterFilter();
-				return;
-			}
-
-			oBinding.filter(new Filter({
-				filters: [
-					new Filter("fullname", FilterOperator.Contains, sQuery),
-					new Filter("email", FilterOperator.Contains, sQuery)
-				],
-				and: false
-			}));
-			this._goToPage(1);
-			this._updateCountAfterFilter();
-		},
-
-		onColumnSort: function (oEvent) {
-			const sSortProperty = oEvent.getSource().data("sortProperty");
-			const bDescending = this._currentSortProperty === sSortProperty ? 
-				!this._currentSortDescending : false;
-			
-			this._currentSortProperty = sSortProperty;
-			this._currentSortDescending = bDescending;
-			
-			this.byId(this.TABLE_ID).getBinding("items").sort(new Sorter(sSortProperty, bDescending));
-			this._updateSortIcons(sSortProperty, bDescending);
-		},
-
-		_updateSortIcons: function (sSortProperty, bDescending) {
-			this.SORT_ICON_IDS.STUDENTS.forEach(sIconId => {
-				const oIcon = this.byId(sIconId);
-				if (!oIcon) return;
-				oIcon.setVisible(false);
-			});
-
-			const iconMap = {
-				"ID": "sortIconID",
-				"fullname": "sortIconFullName", 
-				"email": "sortIconEmail",
-				"balance": "sortIconBalance",
-				"lastPaymentAt": "sortIconLastPayment"
-			};
-
-			const sIconId = iconMap[sSortProperty];
-			if (!sIconId) return;
-			
-			const oIcon = this.byId(sIconId);
-			if (!oIcon) return;
-			
-			oIcon.setSrc(bDescending ? "sap-icon://navigation-down-arrow" : "sap-icon://navigation-up-arrow");
-			oIcon.setVisible(true);
-		},
-
-		onReceiptColumnSort: function (oEvent) {
-			const oReceiptsModel = this.getView().getModel(this.MODEL_NAMES.RECEIPTS);
-			const sSortProperty = oEvent.getSource().data("sortProperty");
-			const aReceipts = oReceiptsModel.getProperty("/receipts") || [];
-
-			const bDescending = this._currentReceiptSortProperty === sSortProperty ?
-				!this._currentReceiptSortDescending : false;
-
-			this._currentReceiptSortProperty = sSortProperty;
-			this._currentReceiptSortDescending = bDescending;
-
-			const aSortedReceipts = [...aReceipts].sort((a, b) => {
-				let valueA = a[sSortProperty];
-				let valueB = b[sSortProperty];
-
-				if (sSortProperty === "amount") {
-					valueA = parseFloat(valueA) || 0;
-					valueB = parseFloat(valueB) || 0;
-				}
-
-				if (sSortProperty === "date") {
-					valueA = new Date(valueA);
-					valueB = new Date(valueB);
-				}
-
-				if (valueA < valueB) return bDescending ? 1 : -1;
-				if (valueA > valueB) return bDescending ? -1 : 1;
-				return 0;
-			});
-
-			oReceiptsModel.setProperty("/receipts", aSortedReceipts);
-			this._updateReceiptSortIcons(sSortProperty, bDescending);
-		},
-
-		_updateReceiptSortIcons: function (sSortProperty, bDescending) {
-			this.SORT_ICON_IDS.RECEIPTS.forEach(sIconId => {
-				const oIcon = this.byId(sIconId);
-				if (!oIcon) return;
-				oIcon.setVisible(false);
-			});
-
-			const iconMap = {
-				"amount": "sortIconReceiptAmount",
-				"date": "sortIconReceiptDate"
-			};
-
-			const sIconId = iconMap[sSortProperty];
-			if (!sIconId) return;
-			
-			const oIcon = this.byId(sIconId);
-			if (!oIcon) return;
-			
-			oIcon.setSrc(bDescending ? "sap-icon://navigation-down-arrow" : "sap-icon://navigation-up-arrow");
-			oIcon.setVisible(true);
-		},
-
-		onFilterChange: function () {
-			const oFilterModel = this.getView().getModel(this.MODEL_NAMES.FILTER);
-			const oCurrentFilters = oFilterModel.getProperty("/filters");
-			const sCurrentSearchQuery = this.byId(this.SEARCH_FIELD_ID) ? 
-				this.byId(this.SEARCH_FIELD_ID).getValue() : "";
-			
-			const bNeedsImmediateUpdate = (
-				(this._previousFilters.idFrom && !oCurrentFilters.idFrom) ||
-				(this._previousFilters.idTo && !oCurrentFilters.idTo) ||
-				(this._previousFilters.email && !oCurrentFilters.email) ||
-				(this._previousFilters.balanceFrom !== "0.00" && oCurrentFilters.balanceFrom === "0.00") ||
-				(this._previousFilters.balanceTo !== "0.00" && oCurrentFilters.balanceTo === "0.00") ||
-				(this._previousFilters.dateFrom && !oCurrentFilters.dateFrom) ||
-				(this._previousFilters.dateTo && !oCurrentFilters.dateTo) ||
-				(this._previousFilters.searchQuery && !sCurrentSearchQuery)
-			);
-			
-			if (this._filterTimeout) clearTimeout(this._filterTimeout);
-			
-			if (bNeedsImmediateUpdate) {
-				this._applyAllFilters();
-			} else {
-				this._filterTimeout = setTimeout(() => this._applyAllFilters(), 500);
-			}
-		},
-
-		onClearFilter: function () {
-			this.getView().getModel(this.MODEL_NAMES.FILTER).setProperty("/filters", {
-				...this.DEFAULT_FILTER_STATE,
-				idFrom: null,
-				idTo: null,
-				dateFrom: "",
-				dateTo: ""
-			});
-			
-			const searchField = this.byId(this.SEARCH_FIELD_ID);
-			if (!searchField) return;
-			searchField.setValue("");
-			
-			const idFromField = this.byId(this.INPUT_IDS.ID_FROM);
-			if (!idFromField) return;
-			idFromField.setValue(null);
-			
-			const idToField = this.byId(this.INPUT_IDS.ID_TO);
-			if (!idToField) return;
-			idToField.setValue(null);
-			
-			[
-				this.INPUT_IDS.NAME_FILTER, 
-				this.INPUT_IDS.BALANCE_FROM, 
-				this.INPUT_IDS.BALANCE_TO, 
-				this.INPUT_IDS.DATE_FROM, 
-				this.INPUT_IDS.DATE_TO
-			].forEach(sInputId => {
-				const oInput = this.byId(sInputId);
-				if (!oInput) return;
-				oInput.setValue("");
-			});
-			
-			this._previousFilters = {
-				...this.DEFAULT_FILTER_STATE,
-				idFrom: null,
-				idTo: null,
-				dateFrom: "",
-				dateTo: ""
-			};
-			
-			this._applyAllFilters();
-			MessageToast.show(this.getResourceBundle().getText("filtersCleared"));
-		},
-
-		onIdFilterChange: function (oEvent) {
-			const sValue = oEvent.getParameter("newValue");
-			const sCleanValue = sValue.replace(/[^0-9]/g, "");
-			
-			if (sValue === sCleanValue) {
-				this.onFilterChange();
-				return;
-			}
-			
-			oEvent.getSource().setValue(sCleanValue);
-			this.onFilterChange();
-		},
-
-		onNameFilterChange: function (oEvent) {
-			const sValue = oEvent.getParameter("newValue");
-			const sCleanValue = sValue.replace(/[^a-zA-Z0-9\s\-']/g, "");
-			
-			if (sValue === sCleanValue) {
-				this.onFilterChange();
-				return;
-			}
-			
-			oEvent.getSource().setValue(sCleanValue);
-			this.getView().getModel(this.MODEL_NAMES.FILTER).setProperty("/filters/name", sCleanValue);
-			this.onFilterChange();
-		},
-
-		onEmailFilterChange: function (oEvent) {
-			const sValue = oEvent.getParameter("newValue");
-			const sCleanValue = sValue.replace(/[^a-zA-Z0-9@._-]/g, "");
-			
-			if (sValue === sCleanValue) {
-				this.onFilterChange();
-				return;
-			}
-			
-			oEvent.getSource().setValue(sCleanValue);
-			this.onFilterChange();
-		},
-
-		onBalanceFilterChange: function (oEvent) {
-			const sNewValue = oEvent.getParameter("newValue");
-			const sStorageKey = oEvent.getSource().getId().includes("balanceFrom") ? 
-				"_balanceFromRaw" : "_balanceToRaw";
-			let sCurrentRaw = this[sStorageKey] || "0";
-			
-			if (!sNewValue || sNewValue === "0.00") {
-				this[sStorageKey] = "0";
-				oEvent.getSource().setValue("0.00");
-				this.onFilterChange();
-				return;
-			}
-			
-			const sDigitsOnly = sNewValue.replace(/[^\d]/g, "");
-			const sCurrentDigitsOnly = this._getDisplayValue(sCurrentRaw).replace(/[^\d]/g, "");
-			
-			if (sDigitsOnly.length > sCurrentDigitsOnly.length) {
-				sCurrentRaw += sDigitsOnly.slice(-1);
-			} else if (sDigitsOnly.length < sCurrentDigitsOnly.length) {
-				sCurrentRaw = sCurrentRaw.slice(0, -1) || "0";
-			}
-			
-			this[sStorageKey] = sCurrentRaw;
-			oEvent.getSource().setValue(this._getDisplayValue(sCurrentRaw));
-			this.onFilterChange();
-		},
-		
-		_getDisplayValue: function (sRawValue) {
-			const iRawLength = sRawValue.length;
-			
-			if (iRawLength === 1) return `0.0${sRawValue}`;
-			if (iRawLength === 2) return `0.${sRawValue}`;
-			
-			const sIntegerPart = parseInt(sRawValue.slice(0, -2), 10).toString();
-			const sDecimalPart = sRawValue.slice(-2);
-			return `${sIntegerPart}.${sDecimalPart}`;
-		},
-
-		_applyAllFilters: function () {
-			const oFilterModel = this.getView().getModel(this.MODEL_NAMES.FILTER);
-			const oBinding = this.byId(this.TABLE_ID).getBinding("items");
-			const oFilters = oFilterModel.getProperty("/filters");
-			
-			const sSearchQuery = this.byId(this.SEARCH_FIELD_ID) ? 
-				this.byId(this.SEARCH_FIELD_ID).getValue() : "";
-			
-			const aFilters = [];
-			
-			if (oFilters.idFrom && oFilters.idTo) {
-				aFilters.push(new Filter("ID", FilterOperator.BT, parseInt(oFilters.idFrom, 10), parseInt(oFilters.idTo, 10)));
-			} else if (oFilters.idFrom) {
-				aFilters.push(new Filter("ID", FilterOperator.GE, parseInt(oFilters.idFrom, 10)));
-			} else if (oFilters.idTo) {
-				aFilters.push(new Filter("ID", FilterOperator.LE, parseInt(oFilters.idTo, 10)));
-			}
-			
-			if (sSearchQuery) {
-				aFilters.push(new Filter("fullname", FilterOperator.Contains, sSearchQuery));
-			}
-			
-			if (oFilters.email) {
-				aFilters.push(new Filter("email", FilterOperator.Contains, oFilters.email));
-			}
-			
-			if (oFilters.balanceFrom && oFilters.balanceFrom !== "0.00" && oFilters.balanceTo && oFilters.balanceTo !== "0.00") {
-				aFilters.push(new Filter("balance", FilterOperator.BT, parseFloat(oFilters.balanceFrom), parseFloat(oFilters.balanceTo)));
-			} else if (oFilters.balanceFrom && oFilters.balanceFrom !== "0.00") {
-				aFilters.push(new Filter("balance", FilterOperator.GE, parseFloat(oFilters.balanceFrom)));
-			} else if (oFilters.balanceTo && oFilters.balanceTo !== "0.00") {
-				aFilters.push(new Filter("balance", FilterOperator.LE, parseFloat(oFilters.balanceTo)));
-			}
-			
-			if (oFilters.dateFrom && oFilters.dateTo) {
-				aFilters.push(new Filter("lastPaymentAt", FilterOperator.BT, oFilters.dateFrom, oFilters.dateTo));
-			} else if (oFilters.dateFrom) {
-				aFilters.push(new Filter("lastPaymentAt", FilterOperator.GE, oFilters.dateFrom));
-			} else if (oFilters.dateTo) {
-				aFilters.push(new Filter("lastPaymentAt", FilterOperator.LE, oFilters.dateTo));
-			}
-			
-			const oCombinedFilter = new Filter({
-				filters: aFilters,
-				and: true
-			});
-			
-			if (aFilters.length > 0) {
-				oBinding.filter(oCombinedFilter);
-			} else {
-				oBinding.filter([]);
-			}
-			
-			this._previousFilters = {
-				...this.DEFAULT_FILTER_STATE,
-				idFrom: oFilters.idFrom || "",
-				idTo: oFilters.idTo || "",
-				email: oFilters.email || "",
-				balanceFrom: oFilters.balanceFrom || "0.00",
-				balanceTo: oFilters.balanceTo || "0.00",
-				dateFrom: oFilters.dateFrom,
-				dateTo: oFilters.dateTo,
-				searchQuery: sSearchQuery || ""
-			};
-			
-			this._goToPage(1);
-			this._updateCountAfterFilter();
-		},
-
-		onClearFilters: function () {
-			this.getView().getModel(this.MODEL_NAMES.FILTER)
-				.setProperty("/filters", { ...this.DEFAULT_FILTER_STATE });
-			this._balanceFromRaw = "0";
-			this._balanceToRaw = "0";
-			this._previousFilters = { ...this.DEFAULT_FILTER_STATE };
-			this.byId(this.SEARCH_FIELD_ID).setValue("");
-			this.byId(this.TABLE_ID).getBinding("items").filter([]);
-			this._goToPage(1);
-			
-			MessageToast.show(this.getView().getModel(this.MODEL_NAMES.I18N).getResourceBundle().getText("filtersCleared"));
-			
-			setTimeout(() => {
-				this._updateCountFromBinding(this.byId(this.TABLE_ID).getBinding("items"));
-			}, 200);
-		},
-
-		onStudentCheckBoxSelect: function () {
-		},
-
-		onStudentPress: function (oEvent) {
-			const oStudent = oEvent.getSource().getBindingContext().getObject();
-			MessageToast.show(`Student selected: ${oStudent.fullname}`);
-		},
-
-		onAddStudent: function () {
-			try {
-				this._openStudentDetail(true);
-			} catch (error) {
-				MessageBox.error(`Error opening dialog: ${error.message}`);
-			}
-		},
-
-		onEditStudent: function (oEvent) {
-			try {
-				this._openStudentDetail(false, oEvent.getSource().getBindingContext().getObject());
-			} catch (error) {
-				MessageBox.error(`Error opening dialog: ${error.message}`);
-			}
-		},
-
-		onDeleteStudent: function (oEvent) {
-			const oContext = oEvent.getSource().getBindingContext();
-			const oStudent = oContext.getObject();
-			
-			MessageBox.confirm(
-				"Are you sure you want to delete student '" + oStudent.fullname + "'?",
-				{
-					title: "Confirm Deletion",
-					onClose: function (sAction) {
-						if (sAction === MessageBox.Action.OK) {
-							this._deleteStudent(oContext);
-						}
-					}.bind(this)
-				}
-			);
-		},
-
-		_deleteStudent: function (oContext) {
-			oContext.delete().then(() => {
-				MessageToast.show("Student deleted successfully");
-				const oBinding = this.byId(this.TABLE_ID).getBinding("items");
-				if (!oBinding) return;
-				setTimeout(() => {
-					this._updateCountFromBinding(oBinding);
-				}, 200);
-			}).catch((oError) => {
-				MessageBox.error("Error deleting student: " + (oError.message || oError));
-			});
-		},
-
-		onViewReceipts: function (oEvent) {
-			const oContext = oEvent.getSource().getBindingContext();
-			const oStudent = oContext.getObject();
-			
-			MessageToast.show("View Receipts for: " + oStudent.fullname);
-		},
-
-		_openStudentDetail: function (bIsNew, oStudent) {
-			if (!this._oDialog) {
-				sap.ui.require(["sap/ui/core/Fragment", "student/crm/ui/controller/StudentsDetail.controller"], (Fragment, StudentsDetailController) => {
-					const oController = new StudentsDetailController();
-					
-					Fragment.load({
-						name: "student.crm.ui.view.StudentDetail",
-						controller: oController
-					}).then((oDialog) => {
-						this._oDialog = oDialog;
-						this._oDetailController = oController;
-						this.getView().addDependent(this._oDialog);
-						
-						oController.setMainView(this.getView());
-						oController.setMainController(this);
-						oController.setDialog(this._oDialog);
-						oController.onInit();
-						oController.openDialog(bIsNew, oStudent);
-					});
-				});
-				return;
-			}
-			
-			if (this._oDetailController) {
-				this._oDetailController.openDialog(bIsNew, oStudent);
-			}
-		},
-
-		_refreshTable: function () {
-			const oTableBinding = this.byId(this.TABLE_ID).getBinding("items");
-			if (!oTableBinding) return;
-			setTimeout(() => {
-				this._updateCountFromBinding(oTableBinding);
-			}, 200);
-		},
-
-		formatBalanceState: function (balance) {
-			switch (true) {
-				case !balance:
-					return "None";
-				case balance < 0:
-					return "Error";
-				case balance === 0:
-					return "Warning";
-				default:
-					return "Success";
-			}
-		},
-
-		_getTotalCount: function() {
-			const oModel = this.getModel();
-			
-			const oBinding = oModel.bindList("/Students");
-			
-			if (typeof oBinding.getCount === 'function') {
-				oBinding.getCount();
-			}
-			
-			oBinding.requestContexts(0, 1).then(() => {
-				const totalCount = oBinding.getCount();
-				
-				if (totalCount > 0) {
-					const oPaginationModel = this.getView().getModel(this.MODEL_NAMES.PAGINATION);
-					oPaginationModel.setProperty("/totalItems", totalCount);
-					const totalPages = Math.max(1, Math.ceil(totalCount / this._pageSize));
-					oPaginationModel.setProperty("/totalPages", totalPages);
-				}
-			}).catch(() => {
-			});
-			
-			setTimeout(() => {
-				const oTableBinding = this.byId(this.TABLE_ID).getBinding("items");
-				
-				if (oTableBinding) {
-					oTableBinding.getCount();
-					
-					if (typeof oTableBinding.getLength === 'function') {
-						oTableBinding.getLength();
-					}
-					
-					oTableBinding.getContexts();
-				}
-			}, 1000);
-		},
-
-		onFirstPage: function () {
-			this._goToPage(1);
-		},
-
-		onPreviousPage: function () {
-			const oPaginationModel = this.getView().getModel(this.MODEL_NAMES.PAGINATION);
-			const currentPage = oPaginationModel.getProperty("/currentPage");
-			
-			if (currentPage <= 1) return;
-			this._goToPage(currentPage - 1);
-		},
-
-		onNextPage: function () {
-			const oPaginationModel = this.getView().getModel(this.MODEL_NAMES.PAGINATION);
-			const currentPage = oPaginationModel.getProperty("/currentPage");
-			const totalPages = oPaginationModel.getProperty("/totalPages");
-			
-			if (currentPage >= totalPages) return;
-			this._goToPage(currentPage + 1);
-		},
-
-		onLastPage: function () {
-			const oPaginationModel = this.getView().getModel(this.MODEL_NAMES.PAGINATION);
-			const totalPages = oPaginationModel.getProperty("/totalPages");
-			this._goToPage(totalPages);
-		},
-
-		onPageChange: function (oEvent) {
-			const sValue = oEvent.getParameter("value");
-			const iPage = parseInt(sValue, 10);
-			const oPaginationModel = this.getView().getModel(this.MODEL_NAMES.PAGINATION);
-			const totalPages = oPaginationModel.getProperty("/totalPages");
-			
-			if (isNaN(iPage) || iPage < 1) {
-				oPaginationModel.setProperty("/currentPage", oPaginationModel.getProperty("/currentPage"));
-				MessageToast.show("Please enter a valid page number");
-				return;
-			}
-			
-			if (iPage > totalPages) {
-				oPaginationModel.setProperty("/currentPage", oPaginationModel.getProperty("/currentPage"));
-				MessageToast.show("Page number exceeds total pages");
-				return;
-			}
-			
-			this._goToPage(iPage);
-		},
-
-		_goToPage: function (iPage) {
-			const oPaginationModel = this.getView().getModel(this.MODEL_NAMES.PAGINATION);
-			const oBinding = this.byId(this.TABLE_ID).getBinding("items");
-			
-			oPaginationModel.setProperty("/currentPage", iPage);
-			
-			const skip = (iPage - 1) * this._pageSize;
-			
-			oBinding.changeParameters({
-				"$skip": skip,
-				"$top": this._pageSize,
-				"$count": true
-			});
-			
-			const totalItems = oPaginationModel.getProperty("/totalItems");
-			const totalPages = Math.max(1, Math.ceil(totalItems / this._pageSize));
-			oPaginationModel.setProperty("/totalPages", totalPages);
-			oPaginationModel.setProperty("/hasPrevious", iPage > 1);
-			oPaginationModel.setProperty("/hasNext", iPage < totalPages);
-		},
-
-		_updatePaginationState: function () {
-			const oBinding = this.byId(this.TABLE_ID).getBinding("items");
-			
-			if (!oBinding) return;
-			this._updateCountFromBinding(oBinding);
-		},
-
-		onDebugCount: function() {
-			this._fetchTotalCount();
-		},
-
-		onDebugApiUrl: function() {
-			const sApiUrl = this._getApiBaseUrl();
-			const sStudentsUrl = this._getStudentsApiUrl();
-			MessageToast.show("Base API URL: " + sApiUrl + "\nStudents URL: " + sStudentsUrl);
-			console.log("API Configuration:", {
-				baseUrl: sApiUrl,
-				studentsUrl: sStudentsUrl,
-				currentOrigin: window.location.origin,
-				modelServiceUrl: this.getModel() ? this.getModel().sServiceUrl : "No model"
-			});
-		}
-	});
+  "student/crm/ui/controller/BaseController",
+  "sap/m/MessageBox",
+  "sap/m/MessageToast",
+  "sap/ui/model/Filter",
+  "sap/ui/model/FilterOperator",
+  "sap/ui/model/json/JSONModel",
+  "student/crm/ui/model/formatter",
+  "sap/ui/core/BusyIndicator"
+], function (BaseController, MessageBox, MessageToast, Filter, FilterOperator, JSONModel, formatter, BusyIndicator) {
+  "use strict";
+
+  return BaseController.extend("student.crm.ui.controller.Students", {
+    formatter: formatter,
+
+    TABLE_ID: "studentsTable",
+
+    MODEL_NAMES: { FILTER: "filter", PAGINATION: "pagination" },
+
+    DEFAULT_FILTER_STATE: { fullNames: [], studentIds: [], emails: [], balanceRanges: [], statusList: [] },
+
+    DEFAULT_PAGINATION_STATE: { currentPage: 1, totalPages: 1, hasPrevious: false, hasNext: false, totalItems: 0 },
+
+    onInit: function () {
+      this._pageSize = 10;
+      this.getView().setModel(new JSONModel({ filters: { ...this.DEFAULT_FILTER_STATE } }), this.MODEL_NAMES.FILTER);
+      this.getView().setModel(new JSONModel({ ...this.DEFAULT_PAGINATION_STATE }), this.MODEL_NAMES.PAGINATION);
+      this._checkAuthentication();
+    },
+
+    onExit: function () {
+      // Clean up dialog and promise to prevent memory leaks
+      if (this._oDialog) {
+        this._oDialog.destroy();
+        this._oDialog = null;
+      }
+      this._oDetailController = null;
+      this._oDetailDialogPromise = null;
+    },
+
+    onBalanceInputLiveChange: function (oEvent) {
+      var oInput = oEvent.getSource();
+      var sValue = oInput.getValue();
+      var valid = /^\s*-?\d*(\.\d+)?\s*(-\s*-?\d*(\.\d+)?)?\s*$/.test(sValue);
+      if (!valid && sValue) {
+        oInput.setValue(sValue.slice(0, -1));
+      }
+    },
+
+    _checkAuthentication: function () {
+      const isLoggedIn = sessionStorage.getItem("isLoggedIn");
+      if (!isLoggedIn || isLoggedIn !== "true") {
+        this.navTo("main");
+        return;
+      }
+      setTimeout(() => this._initializePagination(), 100);
+    },
+
+    _initializePagination: function () {
+      const oBinding = this.byId(this.TABLE_ID).getBinding("items");
+      if (!oBinding) {
+        setTimeout(() => this._initializePagination(), 150);
+        return;
+      }
+      oBinding.changeParameters({ "$count": true });
+      this._bindToCount(oBinding);
+    },
+
+    _bindToCount: function (oBinding) {
+      const trigger = () => setTimeout(() => this._updateCountFromBinding(oBinding), 100);
+      oBinding.attachChange(trigger);
+      oBinding.attachDataReceived(trigger);
+      trigger();
+    },
+
+    _updatePaginationWithCount: function (totalCount) {
+      const m = this.getView().getModel(this.MODEL_NAMES.PAGINATION);
+      const page = m.getProperty("/currentPage") || 1;
+      const pages = Math.max(1, Math.ceil(totalCount / this._pageSize));
+      m.setProperty("/totalItems", totalCount);
+      m.setProperty("/totalPages", pages);
+      m.setProperty("/hasPrevious", page > 1);
+      m.setProperty("/hasNext", page < pages);
+    },
+
+    _updateCountFromBinding: function (oBinding) {
+      const fallback = () => {
+        const oTable = this.byId(this.TABLE_ID);
+        const visible = oTable && oTable.getItems ? oTable.getItems().length : 0;
+        this._updatePaginationWithCount(visible);
+      };
+      try {
+        if (oBinding && oBinding.getHeaderContext) {
+          const hc = oBinding.getHeaderContext();
+          if (hc && hc.requestProperty) {
+            hc.requestProperty("$count")
+              .then((c) => {
+                if (typeof c === "number" && c >= 0) {
+                  this._updatePaginationWithCount(c);
+                } else {
+                  fallback();
+                }
+              })
+              .catch(fallback);
+            return;
+          }
+        }
+      } catch (e) {}
+      let total = 0;
+      if (oBinding && oBinding.getCount) total = oBinding.getCount();
+      if (total <= 0 && oBinding && oBinding.getLength) total = oBinding.getLength() || 0;
+      if (total <= 0 && oBinding && oBinding.getContexts) total = (oBinding.getContexts() || []).length;
+      if (total >= 0) this._updatePaginationWithCount(total);
+    },
+
+    onFilterBarSearch: function () {
+      this._syncTokensFromControlsToModel();
+      this._applyAllFilters();
+    },
+
+    onFilterBarClear: function () {
+      this._clearAllTokens();
+      this._clearAllFilters();
+    },
+
+    _clearAllFilters: function () {
+      this.getView().getModel(this.MODEL_NAMES.FILTER).setProperty("/filters", { ...this.DEFAULT_FILTER_STATE });
+      this._applyAllFilters();
+      MessageToast.show(this.getResourceBundle().getText("filtersCleared"));
+    },
+
+    onFilterInputSubmit: function (oEvent) {
+      var oInput = oEvent.getSource();
+      var sValue = (oInput.getValue && oInput.getValue()) || "";
+      if (sValue && oInput.addToken) {
+        var aTokens = oInput.getTokens ? oInput.getTokens() : [];
+        var bExists = aTokens.some(function (t) { return (t.getKey && t.getKey()) === sValue || (t.getText && t.getText()) === sValue; });
+        if (!bExists) {
+          oInput.addToken(new sap.m.Token({ text: sValue, key: sValue }));
+        }
+        oInput.setValue("");
+      }
+      this.onFilterBarSearch();
+    },
+
+    _applyAllFilters: function () {
+      const fm = this.getView().getModel(this.MODEL_NAMES.FILTER);
+      const b = this.byId(this.TABLE_ID) && this.byId(this.TABLE_ID).getBinding("items");
+      if (!b) { return; }
+      const f = fm.getProperty("/filters") || {};
+      const a = [];
+      if (Array.isArray(f.fullNames) && f.fullNames.length) {
+        const nameFilters = f.fullNames.map(t => new Filter({ path: "fullname", operator: FilterOperator.Contains, value1: t.text, caseSensitive: false }));
+        a.push(new Filter({ filters: nameFilters, and: false }));
+      }
+      if (Array.isArray(f.studentIds) && f.studentIds.length) a.push(new Filter({ filters: f.studentIds.map(t => new Filter("ID", FilterOperator.EQ, parseInt(t.text, 10))), and: false }));
+      if (Array.isArray(f.emails) && f.emails.length) {
+        const emailFilters = f.emails.map(t => new Filter({ path: "email", operator: FilterOperator.Contains, value1: t.text, caseSensitive: false }));
+        a.push(new Filter({ filters: emailFilters, and: false }));
+      }
+      if (Array.isArray(f.balanceRanges) && f.balanceRanges.length) {
+        const ranges = [];
+        f.balanceRanges.forEach(t => {
+          const parts = String(t.text).split("-").map(s => s.trim());
+          if (parts.length === 2) {
+            const lo = parseFloat(parts[0]);
+            const hi = parseFloat(parts[1]);
+            if (!isNaN(lo) && !isNaN(hi)) ranges.push(new Filter("balance", FilterOperator.BT, lo, hi));
+          } else if (parts.length === 1) {
+            const v = parseFloat(parts[0]);
+            if (!isNaN(v)) ranges.push(new Filter("balance", FilterOperator.EQ, v));
+          }
+        });
+        if (ranges.length) a.push(new Filter({ filters: ranges, and: false }));
+      }
+      if (Array.isArray(f.statusList) && f.statusList.length) {
+        const map = { active: () => new Filter("balance", FilterOperator.GT, 0), inactive: () => new Filter("balance", FilterOperator.EQ, 0), pending: () => new Filter("balance", FilterOperator.LT, 0) };
+        const statusFilters = f.statusList.map(t => map[t.key] ? map[t.key]() : null).filter(Boolean);
+        if (statusFilters.length) a.push(new Filter({ filters: statusFilters, and: false }));
+      }
+      const combined = a.length ? new Filter({ filters: a, and: true }) : [];
+      b.filter(combined);
+      this._updateCountAfterFilter();
+    },
+
+    _updateCountAfterFilter: function () {
+      const b = this.byId(this.TABLE_ID).getBinding("items");
+      if (!b) {
+        return;
+      }
+      setTimeout(() => this._updateCountFromBinding(b), 200);
+    },
+
+    onTableUpdateFinished: function (e) {
+      const t = e.getParameter("total");
+      if (typeof t === "number" && t >= 0) {
+        this._updatePaginationWithCount(t);
+        return;
+      }
+      const b = e.getSource().getBinding("items");
+      if (b) {
+        this._updateCountFromBinding(b);
+      }
+    },
+
+    onStudentPress: function (oEvent) {
+      const oContext = oEvent.getSource().getBindingContext();
+      if (!oContext) {
+        return;
+      }
+      this._getDetailDialogController().then((oDetailCtrl) => {
+        oDetailCtrl.openDialog(false, oContext.getObject());
+      }).catch((err) => {
+        MessageBox.error(this.getResourceBundle().getText("errorLoadingDialog", "Error loading dialog: {0}").replace("{0}", (err.message || err)));
+      });
+    },
+
+    onAddStudent: function () {
+      this._getDetailDialogController().then((oDetailCtrl) => {
+        oDetailCtrl.openDialog(true);
+      }).catch((err) => {
+        MessageBox.error(this.getResourceBundle().getText("errorLoadingDialog", "Error loading dialog: {0}").replace("{0}", (err.message || err)));
+      });
+    },
+
+    /**
+     * Returns a promise resolving with the StudentsDetail controller after loading the fragment (singleton)
+     */
+    _getDetailDialogController: function () {
+      if (!this._oDetailDialogPromise) {
+        this._oDetailDialogPromise = new Promise((resolve, reject) => {
+          sap.ui.require([
+            "sap/ui/core/Fragment",
+            "student/crm/ui/controller/StudentsDetail.controller"
+          ], (Fragment, StudentsDetailController) => {
+            try {
+              const oDetailCtrl = new StudentsDetailController();
+              Fragment.load({
+                name: "student.crm.ui.view.StudentDetail",
+                controller: oDetailCtrl
+              }).then((oDialog) => {
+                this._oDialog = oDialog;
+                this._oDetailController = oDetailCtrl;
+                this.getView().addDependent(oDialog);
+                oDetailCtrl.setMainView(this.getView());
+                oDetailCtrl.setMainController(this);
+                oDetailCtrl.setDialog(oDialog);
+                if (oDetailCtrl.onInit) { oDetailCtrl.onInit(); }
+                resolve(oDetailCtrl);
+              }).catch((err) => {
+                // Reset promise on error so it can be retried
+                this._oDetailDialogPromise = null;
+                reject(err);
+              });
+            } catch (e) {
+              this._oDetailDialogPromise = null;
+              reject(e);
+            }
+          }, (err) => {
+            this._oDetailDialogPromise = null;
+            reject(err);
+          });
+        });
+      }
+      return this._oDetailDialogPromise;
+    },
+
+    onDeleteStudent: function (oEvent) {
+      const c = oEvent.getSource().getBindingContext();
+      const s = c.getObject();
+      MessageBox.confirm(
+        this.getResourceBundle().getText("studentDeleteConfirm", "Are you sure you want to delete student '{0}'?").replace("{0}", s.fullname),
+        {
+          title: this.getResourceBundle().getText("confirmDeletionTitle", "Confirm Deletion"),
+          onClose: function (a) {
+            if (a === MessageBox.Action.OK) {
+              this._deleteStudent(c);
+            }
+          }.bind(this)
+        }
+      );
+    },
+
+    _deleteStudent: function (c) {
+      c
+        .delete()
+        .then(() => {
+          MessageToast.show(this.getResourceBundle().getText("studentDeleteSuccess", "Student deleted successfully"));
+          const b = this.byId(this.TABLE_ID).getBinding("items");
+          if (!b) {
+            return;
+          }
+          setTimeout(() => this._updateCountFromBinding(b), 200);
+        })
+        .catch((e) => MessageBox.error(this.getResourceBundle().getText("errorDeletingStudent", "Error deleting student: {0}").replace("{0}", (e.message || e))));
+    },
+
+    onViewReceipts: function (oEvent) {
+      const s = oEvent.getSource().getBindingContext().getObject();
+      MessageToast.show(this.getResourceBundle().getText("viewReceiptsFor", "View Receipts for: {0}").replace("{0}", s.fullname));
+    },
+
+    onTokenUpdate: function (oEvent) {
+      const type = oEvent.getParameter("type");
+      const tokens = oEvent.getParameter("tokens") || [];
+      const oSource = oEvent.getSource();
+      const path = this._getFilterArrayPathForMultiInput(oSource);
+      if (!path) {
+        return;
+      }
+      const m = this.getView().getModel(this.MODEL_NAMES.FILTER);
+      const arr = m.getProperty(path) || [];
+      if (type === "added") {
+        tokens.forEach(tok => {
+          const text = tok.getText && tok.getText();
+          const key = tok.getKey && tok.getKey();
+          if (!text) {
+            return;
+          }
+          if (!arr.some(t => (t.key || "") === (key || "") && t.text === text)) {
+            arr.push({ key: key || text, text });
+          }
+        });
+      } else {
+        tokens.forEach(tok => {
+          const text = tok.getText && tok.getText();
+          const key = tok.getKey && tok.getKey();
+          for (let i = arr.length - 1; i >= 0; i--) {
+            if (arr[i].text === text && (arr[i].key || "") === (key || "")) {
+              arr.splice(i, 1);
+            }
+          }
+        });
+      }
+      m.setProperty(path, arr);
+      if (type !== "added") {
+        this._applyAllFilters();
+      }
+    },
+
+    onTokenDelete: function (oEvent) {
+      const oToken = oEvent.getSource();
+      const sText = oToken.getText && oToken.getText();
+      const sKey = oToken.getKey && oToken.getKey();
+      let oMI = oToken.getParent && oToken.getParent();
+      while (oMI && (!oMI.isA || !oMI.isA("sap.m.MultiInput"))) {
+        oMI = oMI.getParent && oMI.getParent();
+      }
+      const path = this._getFilterArrayPathForMultiInput(oMI || oToken.getParent());
+      if (!path) return;
+      const m = this.getView().getModel(this.MODEL_NAMES.FILTER);
+      const arr = m.getProperty(path) || [];
+      for (let i = arr.length - 1; i >= 0; i--) {
+        if (arr[i].text === sText && (arr[i].key || "") === (sKey || "")) {
+          arr.splice(i, 1);
+        }
+      }
+      m.setProperty(path, arr);
+      this._applyAllFilters();
+    },
+
+    onSuggestionItemSelected: function (oEvent) {
+      const oItem = oEvent.getParameter("selectedItem") || oEvent.getParameter("item");
+      if (!oItem) return;
+      const text = oItem.getText ? oItem.getText() : (oItem.getProperty && oItem.getProperty("text"));
+      const key = oItem.getKey ? oItem.getKey() : (oItem.getProperty && oItem.getProperty("key"));
+      const oSource = oEvent.getSource();
+      const path = this._getFilterArrayPathForMultiInput(oSource);
+      if (!path || !text) return;
+      const m = this.getView().getModel(this.MODEL_NAMES.FILTER);
+      const arr = m.getProperty(path) || [];
+      if (!arr.some(t => (t.key || "") === (key || "") && t.text === text)) {
+        arr.push({ key: key || text, text });
+      }
+      m.setProperty(path, arr);
+      if (oSource.addToken) {
+        oSource.addToken(new sap.m.Token({ key: key || text, text }));
+      }
+      if (oSource.setValue) {
+        oSource.setValue("");
+      }
+    },
+
+    _getFilterArrayPathForMultiInput: function (oSource) {
+      const id = oSource && oSource.getId ? oSource.getId() : "";
+      switch (true) {
+        case id.includes("fullNameMultiInput"):
+          return "/filters/fullNames";
+        case id.includes("studentIdMultiInput"):
+          return "/filters/studentIds";
+        case id.includes("emailMultiInput"):
+          return "/filters/emails";
+        case id.includes("balanceMultiInput"):
+          return "/filters/balanceRanges";
+        case id.includes("statusMultiInput"):
+          return "/filters/statusList";
+        default:
+          return null;
+      }
+    },
+
+    _getMultiInput: function (id) { return this.byId(id); },
+
+    _syncTokensFromControlsToModel: function () {
+      const m = this.getView().getModel(this.MODEL_NAMES.FILTER);
+      const ensureArray = (v) => Array.isArray(v) ? v : [];
+      const readTokens = (id) => {
+        const mi = this._getMultiInput(id);
+        if (!mi) {
+          return [];
+        }
+        const toks = mi.getTokens ? (mi.getTokens() || []) : [];
+        return toks.map(t => ({ key: (t.getKey && t.getKey()) || t.getText(), text: t.getText && t.getText() }));
+      };
+      const addUnique = (arr, key, text) => {
+        if (!text) {
+          return;
+        }
+        if (!arr.some(t => (t.key || "") === (key || "") && t.text === text)) {
+          arr.push({ key: key || text, text });
+        }
+      };
+      const syncMIFromArray = (id, arr) => {
+        const mi = this._getMultiInput(id);
+        if (!mi) {
+          return;
+        }
+        if (mi.addToken) {
+          const existing = (mi.getTokens && mi.getTokens() || []).map(t => ({ key: (t.getKey && t.getKey()) || t.getText(), text: t.getText && t.getText() }));
+          arr.forEach(it => {
+            if (!existing.some(e => (e.key || "") === (it.key || "") && e.text === it.text)) {
+              mi.addToken(new sap.m.Token({ key: it.key || it.text, text: it.text }));
+            }
+          });
+        }
+        if (mi.setValue) {
+          mi.setValue("");
+        }
+      };
+
+      const names = ensureArray(readTokens("fullNameMultiInput"));
+      const nameMI = this._getMultiInput("fullNameMultiInput");
+      const pendingNames = (nameMI && nameMI.getValue && nameMI.getValue()) ? nameMI.getValue() : "";
+      pendingNames.split(/[;,]/).map(s => s.trim()).filter(Boolean).forEach(s => addUnique(names, s, s));
+      m.setProperty("/filters/fullNames", names);
+      syncMIFromArray("fullNameMultiInput", names);
+
+      const ids = ensureArray(readTokens("studentIdMultiInput"));
+      const idMI = this._getMultiInput("studentIdMultiInput");
+      const pendingIds = (idMI && idMI.getValue && idMI.getValue()) ? idMI.getValue() : "";
+      pendingIds
+        .split(/[;,\s]+/)
+        .map(s => s.trim())
+        .filter(Boolean)
+        .forEach(s => {
+          const n = parseInt(s.replace(/\D/g, ''), 10);
+          if (!isNaN(n)) {
+            addUnique(ids, String(n), String(n));
+          }
+        });
+      m.setProperty("/filters/studentIds", ids);
+      syncMIFromArray("studentIdMultiInput", ids);
+
+      const emails = ensureArray(readTokens("emailMultiInput"));
+      const emailMI = this._getMultiInput("emailMultiInput");
+      const pendingEmails = (emailMI && emailMI.getValue && emailMI.getValue()) ? emailMI.getValue() : "";
+      pendingEmails.split(/[;,\s]+/).map(s => s.trim()).filter(Boolean).forEach(s => addUnique(emails, s, s));
+      m.setProperty("/filters/emails", emails);
+      syncMIFromArray("emailMultiInput", emails);
+
+      const balances = ensureArray(readTokens("balanceMultiInput"));
+      const balMI = this._getMultiInput("balanceMultiInput");
+      const pendingBalances = (balMI && balMI.getValue && balMI.getValue()) ? balMI.getValue() : "";
+      pendingBalances.split(/[;,]/).map(s => s.trim()).filter(Boolean).forEach(s => addUnique(balances, s, s));
+      m.setProperty("/filters/balanceRanges", balances);
+      syncMIFromArray("balanceMultiInput", balances);
+
+      const statuses = ensureArray(readTokens("statusMultiInput"));
+      const statusMI = this._getMultiInput("statusMultiInput");
+      const pendingStatus = (statusMI && statusMI.getValue && statusMI.getValue()) ? statusMI.getValue() : "";
+      const statusMap = { active: "active", inactive: "inactive", pending: "pending" };
+      pendingStatus
+        .split(/[;,\s]+/)
+        .map(s => s.trim().toLowerCase())
+        .filter(Boolean)
+        .forEach(s => {
+          const k = statusMap[s] || s;
+          addUnique(statuses, k, s);
+        });
+      m.setProperty("/filters/statusList", statuses);
+      syncMIFromArray("statusMultiInput", statuses);
+    },
+
+    _clearAllTokens: function () {
+      ["fullNameMultiInput", "studentIdMultiInput", "emailMultiInput", "balanceMultiInput", "statusMultiInput"].forEach(id => {
+        const mi = this._getMultiInput(id);
+        if (mi) {
+          if (mi.removeAllTokens) {
+            mi.removeAllTokens();
+          }
+          if (mi.setValue) {
+            mi.setValue("");
+          }
+        }
+      });
+    }
+  });
 });
